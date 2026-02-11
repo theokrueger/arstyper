@@ -1,0 +1,25 @@
+* arstyper
+minimalistic terminal-based typing test, inspired by [[https://monkeytype.com][monkeytype]] and [[https://github.com/max-niederman/ttyper][ttyper]].
+
+name is either "a rs (rust) typer" or "asdfyper" but for colemak-dh.
+
+** features
+- custom languages
+- highly configurable
+- is pretty
+- fun features
+- analysis & tracking
+
+** inspo
+i really liked [[https://github.com/max-niederman/ttyper][ttyper]], enough that i wanted to extend its functionality a little to suit my needs.
+when starting on that, however, it quickly became apparent that it would be easier to design my own from scratch (and learn about ratatui while i'm at it), as ttyper was not easily extensible in the ways i wanted (and there are some design philosophies that are strange to me, like embedded languages. probably a windows compatibility thing? gross).
+
+so i made this, taking my favourite parts from monkeytype and ttyper into one fast tui.
+
+* how 2 use
+
+```bash
+$ cargo install arstyper # install
+$ arstyper # run
+```
+
