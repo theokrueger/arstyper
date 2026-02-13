@@ -1,3 +1,4 @@
+//! TOML configuration and CLI arguments
 use crate::lang::Lang;
 use crate::ui::color_preview::ColorPreview;
 use clap::Parser;
@@ -11,6 +12,7 @@ use std::{
 
 #[derive(Deserialize, Serialize)]
 #[serde(default)]
+/// Root config file, targeting TOML.
 pub struct Config {
     pub lang: String,
     pub theme: ThemeCfg,
@@ -28,6 +30,9 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Safely get the configuration from config directory, using defaults if it cannot be accessed.
+    /// Then load CLI arguments and layer those options over the TOML configuration.
+    /// Also creates a new default config if none exists at runtime.
     pub fn get() -> std::io::Result<Self> {
         let a = Args::get()?;
         let p = dirs::config_local_dir().unwrap().join("arstyper.toml");
@@ -71,6 +76,7 @@ impl Config {
 
 #[derive(Deserialize, Serialize)]
 #[serde(default)]
+/// Theme configuration, currently only supports named colors.
 pub struct ThemeCfg {
     pub fg: Color,
     pub bg: Color,
@@ -93,6 +99,7 @@ impl Default for ThemeCfg {
 
 #[derive(Deserialize, Serialize)]
 #[serde(default)]
+/// Specific UI configuration to show or hide elements and change behaviours.
 pub struct UiCfg {
     pub show_clock: bool,
 }
@@ -122,6 +129,7 @@ struct Args {
 }
 
 impl Args {
+    /// Get CLI arguments and follow potential pre-UI endpoints.
     fn get() -> std::io::Result<Self> {
         let a = Self::parse();
 

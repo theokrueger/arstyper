@@ -1,4 +1,5 @@
-//! display all standard color combos for terminals
+//! Display all standard color combos for terminals
+//! Called specially as a help argument
 
 use crate::ui::State;
 use ratatui::{

@@ -1,6 +1,7 @@
+//! Root UI
 pub mod color_preview;
 
-use crate::{config::Config, lang::Lang};
+use crate::{config::Config, lang::Lang, test::Test};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
@@ -14,6 +15,7 @@ use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
 pub struct Ui {
     cfg: Config,
+    lang: Lang,
 
     state: State,
     screen: Screen,
@@ -53,6 +55,8 @@ struct Styles {
 
 impl Ui {
     pub fn new(cfg: Config) -> Self {
+        let lang = Lang::get_by_name(&cfg.lang);
+
         let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
         let mode_sty = root_sty.bg(cfg.theme.accent);
         let mode_inv_sty = mode_sty.add_modifier(Modifier::REVERSED);
@@ -68,19 +72,25 @@ impl Ui {
             status: "Welcome to arstyper! Press <F1> for help, or 'Ctrl+C' to exit.".to_string(),
             clear_status_at: Local::now() + TimeDelta::seconds(3),
             cfg: cfg,
+            lang: lang,
         }
     }
 
     pub fn run(mut self) -> std::io::Result<()> {
-        let mut lang = Lang::get_by_name(&self.cfg.lang);
         let mut terminal = ratatui::init();
         while self.state != State::Stopped {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;
-            // non event state logic
+
+            // non-event-driven state logic
+            // (mostly things i'm to lazy to spin a thread up for)
             let t = Local::now();
             if t >= self.clear_status_at {
                 self.clear_status();
+            }
+            match self.screen {
+                //                Screen::TestScreen => self.test,
+                _ => {}
             }
         }
 
@@ -108,6 +118,7 @@ impl Ui {
                     }
                     _ => {}
                 }
+
                 // per-screen keys
                 match self.screen {
                     Screen::AboutScreen => self.handle_about_events(key.code),

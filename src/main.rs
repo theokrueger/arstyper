@@ -1,3 +1,4 @@
+//! arstyper
 mod config;
 mod lang;
 mod ui;
