@@ -13,14 +13,16 @@ use std::{
 #[serde(default)]
 pub struct Config {
     pub lang: String,
-    pub theme: Theme,
+    pub theme: ThemeCfg,
+    pub ui: UiCfg,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             lang: "english".to_string(),
-            theme: Theme::default(),
+            theme: ThemeCfg::default(),
+            ui: UiCfg::default(),
         }
     }
 }
@@ -44,16 +46,18 @@ impl Config {
                     f.write_all(c.as_bytes()).unwrap();
                     println!("Sucessfully wrote default config to {}", p.display());
                 }
-                Err(e) => println!("Error creating {}: {e}", p.display()),
+                Err(e) => {
+                    println!("Error creating {}: {e}", p.display());
+                    process::exit(0b1);
+                }
             }
 
-            "".to_string() // faster than returning c, trust
+            "".to_string() // faster than returning c since its defaults anyways
         });
 
         let mut cfg: Self = toml::from_str(&s).unwrap_or_else(|e| {
-            println!("{}: {e}\nProceeding with default config...", p.display());
-            thread::sleep(time::Duration::from_millis(1500));
-            Self::default()
+            println!("{}: {e}", p.display());
+            process::exit(0b1);
         });
 
         // layer args over cfg
@@ -67,23 +71,35 @@ impl Config {
 
 #[derive(Deserialize, Serialize)]
 #[serde(default)]
-pub struct Theme {
-    fg: Color,
-    bg: Color,
-    typed_text: Color,
-    untyped_text: Color,
-    accent: Color,
+pub struct ThemeCfg {
+    pub fg: Color,
+    pub bg: Color,
+    pub typed_text: Color,
+    pub untyped_text: Color,
+    pub accent: Color,
 }
 
-impl Default for Theme {
+impl Default for ThemeCfg {
     fn default() -> Self {
         Self {
-            fg: Color::LightMagenta,
-            bg: Color::DarkGray,
-            typed_text: Color::LightCyan,
+            fg: Color::White,
+            bg: Color::Black,
+            typed_text: Color::DarkGray,
             untyped_text: Color::White,
             accent: Color::Magenta,
         }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(default)]
+pub struct UiCfg {
+    pub show_clock: bool,
+}
+
+impl Default for UiCfg {
+    fn default() -> Self {
+        Self { show_clock: true }
     }
 }
 
@@ -109,22 +125,20 @@ impl Args {
     fn get() -> std::io::Result<Self> {
         let a = Self::parse();
 
-        let mut ex = false;
         if a.list {
             let mut h = io::stdout().lock();
             let _ = writeln!(h, "Available languages:");
             for l in Lang::list() {
                 let _ = writeln!(h, "  {}", l.file_name().unwrap().to_str().unwrap());
             }
-            ex = true;
         } else if a.help_config {
             println!(
                 r#"arstyper Configuration Information
 
 The config file is automatically created on first run.
-- Re-generate it by deleting the config and re-running the program.
-- Unpopulated fields will use sane defaults.
-- CLI options take priority over config options
+  - Re-generate it by deleting the config and re-running the program
+  - Unpopulated fields will use sane defaults
+  - CLI options take priority over config options
 
 The config file is located at one of the following locations:
   Linux: ~/.config/arstyper.toml
@@ -134,17 +148,13 @@ The config file is located at one of the following locations:
 To preview supported Theme Colors:
   arstyper --help-colors"#
             );
-            ex = true;
         } else if a.help_colors {
             let c = ColorPreview::new();
             c.run()?;
-            ex = true;
+        } else {
+            return Ok(a);
         }
 
-        if ex {
-            process::exit(0b0);
-        }
-
-        Ok(a)
+        process::exit(0b0);
     }
 }
