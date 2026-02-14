@@ -7,8 +7,8 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
-    text::{Line, Text},
-    widgets::{Block, Borders, Paragraph, Tabs, Widget},
+    text::Text,
+    widgets::{Block, Widget},
 };
 
 struct ColorLine {
@@ -150,7 +150,7 @@ impl Widget for &ColorPreview {
         block.render(area, buf);
 
         // footer
-        use Constraint::{Length, Min, Percentage};
+        use Constraint::{Length, Min};
         let vertical = Layout::vertical([Min(0), Length(1)]);
         let [body_a, footer_a] = vertical.areas(inner_a);
         Text::from("Press ESC, q, or CTRL+C to quit.").render(footer_a, buf);

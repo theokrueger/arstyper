@@ -1,9 +1,7 @@
 //! Loading and parsing of language files
-use rand::prelude::*;
 use std::{
     fs::{self, File},
-    io::{self, BufRead, Lines},
-    iter,
+    io::{self, BufRead},
     path::PathBuf,
     process,
 };
@@ -101,7 +99,9 @@ impl Lang {
                 (s.select_all, "select_all"),
             ] {
                 if b {
-                    println!("The flag `{s}` is not yet implemented! Your language file may not behave as expected.");
+                    println!(
+                        "The flag `{s}` is not yet implemented! Your language file may not behave as expected."
+                    );
                 }
             }
         }
@@ -124,7 +124,7 @@ impl Lang {
     }
 
     /// Get n word iterator of this language for tests
-    fn gen_words(&self, n: usize) -> impl Iterator<Item = String> {
+    pub fn gen_words(&self, n: usize) -> impl Iterator<Item = String> {
         std::iter::from_fn(|| -> Option<String> {
             Some(self.words[rand::random_range(0..self.words.len())].clone())
         })

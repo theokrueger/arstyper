@@ -7,15 +7,18 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::{self, Write},
-    process, thread, time,
+    process,
 };
 
 #[derive(Deserialize, Serialize)]
 #[serde(default)]
 /// Root config file, targeting TOML.
 pub struct Config {
+    /// Test language
     pub lang: String,
     pub theme: ThemeCfg,
+    /// How many words to test for
+    pub word_count: u32,
     pub ui: UiCfg,
 }
 
@@ -23,6 +26,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             lang: "english".to_string(),
+            word_count: 50,
             theme: ThemeCfg::default(),
             ui: UiCfg::default(),
         }
@@ -69,6 +73,9 @@ impl Config {
         if let Some(l) = a.lang {
             cfg.lang = l;
         }
+        if let Some(wc) = a.words {
+            cfg.word_count = wc;
+        }
 
         Ok(cfg)
     }
@@ -80,8 +87,9 @@ impl Config {
 pub struct ThemeCfg {
     pub fg: Color,
     pub bg: Color,
-    pub typed_text: Color,
     pub untyped_text: Color,
+    pub typed_text: Color,
+    pub incorrect_text: Color,
     pub accent: Color,
 }
 
@@ -90,8 +98,9 @@ impl Default for ThemeCfg {
         Self {
             fg: Color::White,
             bg: Color::Black,
-            typed_text: Color::DarkGray,
             untyped_text: Color::White,
+            typed_text: Color::DarkGray,
+            incorrect_text: Color::Red,
             accent: Color::Magenta,
         }
     }
@@ -101,12 +110,18 @@ impl Default for ThemeCfg {
 #[serde(default)]
 /// Specific UI configuration to show or hide elements and change behaviours.
 pub struct UiCfg {
+    /// Show clock in bottom right of modeline
     pub show_clock: bool,
+    /// 12 or 24 hour clock
+    pub hour_24: bool,
 }
 
 impl Default for UiCfg {
     fn default() -> Self {
-        Self { show_clock: true }
+        Self {
+            show_clock: true,
+            hour_24: true,
+        }
     }
 }
 
@@ -120,6 +135,9 @@ struct Args {
     /// Select language
     #[arg(short, long)]
     lang: Option<String>,
+    /// Specify test word count
+    #[arg(short, long)]
+    words: Option<u32>,
     /// Preview colors
     #[arg(long)]
     help_colors: bool,
