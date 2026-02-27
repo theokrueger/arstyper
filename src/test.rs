@@ -1,5 +1,5 @@
 //! Typing test struct
-use crate::ui::Ui;
+use crate::ui::{Styles, Ui};
 
 use ratatui::{
     buffer::Buffer,
@@ -30,51 +30,88 @@ impl Keypress {
 }
 
 /// A single test word and its keypresses.
-struct TestWord {
+struct TestWord<'a> {
     word: String,
     presses: Vec<Keypress>,
-    correct: bool,
+    spans: Vec<Span<'a>>,
 }
 
-impl From<String> for TestWord {
+impl From<String> for TestWord<'_> {
     fn from(string: String) -> Self {
         TestWord {
             presses: Vec::with_capacity(string.len()),
             word: string,
-            correct: false,
+            spans: Vec::new(),
         }
     }
 }
 
 /// The actual typing test
-pub struct Test {
-    words: Vec<TestWord>,
+pub struct Test<'a> {
+    words: Vec<TestWord<'a>>,
     word_i: usize,
+    styles: Styles,
 }
 
-impl Test {
+impl<'a> Test<'a> {
     /// Create a new emtpy test, which must be initialised before use :D
-    pub fn new() -> Self {
+    pub fn new(s: Styles) -> Self {
         Test {
             words: Vec::new(),
             word_i: 0,
+            styles: s,
         }
     }
 
     /// Handle keypress events for this test
     pub fn handle_events(&mut self, key: KeyEvent) {
+        let mut word = &mut self.words[self.word_i];
         match key.code {
             KeyCode::Char(' ') => {
                 self.word_i += 1;
             }
-            KeyCode::Char(chr) => self.words[self.word_i]
-                .presses
-                .push(Keypress::from_chr(chr)),
-            KeyCode::Backspace => self.words[self.word_i]
-                .presses
-                .push(Keypress::from_chr(BKSPC)),
+            KeyCode::Char(chr) => {
+                word.presses.push(Keypress::from_chr(chr));
+
+                let len = word.spans.len();
+                // potential correct press
+                if len < word.word.len() && chr == word.word.chars().nth(len).unwrap() {
+                    word.spans
+                        .push(Span::raw(chr.to_string()).style(self.styles.typed));
+                }
+                // incorrect press
+                else {
+                    word.spans
+                        .push(Span::raw(chr.to_string()).style(self.styles.incorrect));
+                }
+            }
+            KeyCode::Backspace => {
+                word.presses.push(Keypress::from_chr(BKSPC));
+                let _ = word.spans.pop();
+                if self.word_i > 0 && word.spans.len() == 0 {
+                    self.word_i -= 1;
+                }
+            }
             _ => {}
         }
+    }
+
+    /// Return full word as vec of spans, including untyped portion
+    fn tw_as_span_vec(&self, word_i: usize, tw: &TestWord<'a>) -> Vec<Span<'a>> {
+        // typed portion
+        let mut sv = tw.spans.clone();
+
+        // cursor
+        if self.word_i == word_i
+            && let Some(c) = tw.word.chars().nth(sv.len())
+        {
+            sv.push(Span::raw(c.to_string()).style(self.styles.accent));
+        }
+        // untyped portion
+        let idx = min(sv.len(), tw.word.len());
+        let ut = tw.word[idx..].to_string() + " ";
+        sv.push(Span::raw(ut).style(self.styles.untyped));
+        return sv;
     }
 
     /// Create test from an iterator over string items
@@ -100,46 +137,14 @@ impl Test {
     }
 
     /// Convert all testwords to styled spans with spacing, returned as a single line
-    pub fn words_to_line(&self, ui: &Ui) -> Line<'_> {
-        // TODO this is slow but idfc
-        let mut spans: Vec<Span> = Vec::with_capacity(self.words.len() * (2.2 as usize));
-        for (wc, word) in self.words.iter().enumerate() {
-            let mut i = 0;
-            let mut len = word.word.len();
-            for ev in word.presses.iter() {
-                // backspace
-                if ev.key == BKSPC {
-                    if i > 0 {
-                        let _ = spans.pop();
-                        i -= 1;
-                    }
-                }
-                // potential correct press
-                else if i < len {
-                    if ev.key == word.word.chars().nth(i).unwrap() {
-                        spans.push(Span::raw(ev.key.to_string()).style(ui.styles.typed));
-                    } else {
-                        spans.push(Span::raw(ev.key.to_string()).style(ui.styles.incorrect));
-                    }
-                    i += 1;
-                }
-                // incorrect press
-                else {
-                    spans.push(Span::raw(ev.key.to_string()).style(ui.styles.incorrect));
-                    i += 1;
-                }
-            }
-            // rest of text is untyped, if any
-            if wc == self.word_i
-                && let Some(c) = word.word.chars().nth(i)
-            {
-                spans.push(Span::raw(c.to_string()).style(ui.styles.accent));
-                i += 1;
-            }
-            spans.push(Span::raw(&word.word[min(i, len)..]).style(ui.styles.untyped));
-            spans.push(Span::raw(" "));
-        }
-        let _ = spans.pop(); // remove trailing space
-        return Line::from(spans);
+    pub fn words_to_line(&self, ui: &Ui) -> Line<'a> {
+        Line::from(
+            self.words
+                .iter()
+                .enumerate()
+                .map(|(i, tw)| self.tw_as_span_vec(i, tw))
+                .flatten()
+                .collect::<Vec<Span>>(),
+        )
     }
 }

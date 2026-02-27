@@ -13,7 +13,7 @@ use ratatui::{
 };
 use strum::{Display, EnumIter, FromRepr};
 
-pub struct Ui {
+pub struct Ui<'a> {
     cfg: Config,
     lang: Lang,
 
@@ -21,7 +21,7 @@ pub struct Ui {
     screen: Screen,
     last_screen: Screen,
 
-    test: Test,
+    test: Test<'a>,
 
     status: String,
     clear_status_at: DateTime<Local>,
@@ -49,6 +49,7 @@ enum Screen {
     AboutScreen,
 }
 
+#[derive(Clone)]
 pub struct Styles {
     pub root: Style,
     pub modeline: Style,
@@ -59,7 +60,7 @@ pub struct Styles {
     pub incorrect: Style,
 }
 
-impl Ui {
+impl Ui<'_> {
     pub fn new(cfg: Config) -> Self {
         let lang = Lang::get_by_name(&cfg.lang);
 
@@ -70,16 +71,18 @@ impl Ui {
         let untyped_sty = root_sty.fg(cfg.theme.untyped_text);
         let typed_sty = root_sty.fg(cfg.theme.typed_text);
         let incorrect_sty = root_sty.fg(cfg.theme.incorrect_text);
+        let styles = Styles {
+            root: root_sty,
+            modeline: mode_sty,
+            modeline_inv: mode_inv_sty,
+            accent: accent_sty,
+            untyped: untyped_sty,
+            typed: typed_sty,
+            incorrect: incorrect_sty,
+        };
         Self {
-            styles: Styles {
-                root: root_sty,
-                modeline: mode_sty,
-                modeline_inv: mode_inv_sty,
-                accent: accent_sty,
-                untyped: untyped_sty,
-                typed: typed_sty,
-                incorrect: incorrect_sty,
-            },
+            styles: styles.clone(),
+            test: Test::new(styles),
             state: State::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
@@ -87,7 +90,6 @@ impl Ui {
             clear_status_at: Local::now() + TimeDelta::seconds(5),
             cfg: cfg,
             lang: lang,
-            test: Test::new(),
         }
     }
 
@@ -221,7 +223,7 @@ impl Ui {
     }
 }
 
-impl Widget for &Ui {
+impl Widget for &Ui<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         use Constraint::{Length, Min};
         let vertical = Layout::vertical([Min(0), Length(1), Length(1)]);
