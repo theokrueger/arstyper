@@ -17,9 +17,13 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
-use std::io::stdout;
+use std::{
+    io::stdout,
+    sync::mpsc::{Receiver, SyncSender, sync_channel},
+};
 use strum::{Display, EnumIter, FromRepr};
 
+/// Fat UI struct is poorly named, basically is just the whole program besides config loading.
 pub struct Ui<'a> {
     cfg: Config,
     lang: Lang,
@@ -31,9 +35,15 @@ pub struct Ui<'a> {
     test: Test<'a>,
 
     status: String,
+    /// When the status message is to be cleared
     clear_status_at: DateTime<Local>,
 
+    /// Text and widget styles, distilled from cfg
     pub styles: Styles,
+
+    // communication between screens and stuff
+    uireq_tx: SyncSender<UiRequest>,
+    uireq_rx: Receiver<UiRequest>,
 }
 
 #[derive(Default, PartialEq)]
@@ -44,7 +54,8 @@ pub enum State {
 }
 
 #[derive(Default, Display, Clone, FromRepr, EnumIter)]
-enum Screen {
+/// Screen to display in body area
+pub enum Screen {
     #[default]
     #[strum(to_string = "Testing")]
     TestScreen,
@@ -54,6 +65,16 @@ enum Screen {
     StatisticsScreen,
     #[strum(to_string = "About")]
     AboutScreen,
+}
+
+/// Request sent by screens to here
+pub enum UiRequest {
+    /// Change the screen (duh)
+    ChangeScreen(Screen),
+    //// Set the statusbar to this message. Will overwrite any existing message
+    //DisplayStatus(String, DateTime<Local>),
+    //// Discard current test and create a new one
+    //NewTest,
 }
 
 #[derive(Clone)]
@@ -90,9 +111,11 @@ impl Ui<'_> {
             incorrect: incorrect_sty,
             cursor: cursor_sty,
         };
+
+        let (tx, rx) = sync_channel::<UiRequest>(2); // 2 to avoid lockups that should never happen anyways
         Ok(Self {
             styles: styles.clone(),
-            test: Test::new(styles),
+            test: Test::new(styles, tx.clone()),
             state: State::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
@@ -100,6 +123,8 @@ impl Ui<'_> {
             clear_status_at: Local::now() + TimeDelta::seconds(5),
             cfg: cfg,
             lang: lang,
+            uireq_tx: tx,
+            uireq_rx: rx,
         })
     }
 
@@ -119,10 +144,16 @@ impl Ui<'_> {
             self.handle_events()?;
 
             // non-event-driven state logic
-            // (mostly things i'm to lazy to spin a thread up for)
             let t = Local::now();
             if t >= self.clear_status_at {
                 self.clear_status();
+            }
+
+            // message handling
+            if let Ok(msg) = self.uireq_rx.try_recv() {
+                match msg {
+                    UiRequest::ChangeScreen(s) => self.screen = s,
+                }
             }
         }
 
@@ -231,7 +262,7 @@ impl Ui<'_> {
     }
 
     fn clear_status(&mut self) {
-        self.status = "".to_string();
+        self.status = " ".to_string(); // such that background color can be preserved
         self.clear_status_at = DateTime::<Local>::MAX_UTC.into()
     }
 

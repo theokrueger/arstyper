@@ -1,5 +1,5 @@
 //! Typing test struct
-use crate::ui::Styles;
+use crate::ui::{Screen, Styles, UiRequest};
 
 use ratatui::{
     buffer::Buffer,
@@ -9,14 +9,16 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
 };
-use std::{cmp::min, time::Instant};
+use std::{cmp::min, sync::mpsc::SyncSender, time::Instant};
 
+/// A normal backspace
 pub const BKSPC: char = 0x08 as char;
+/// A "backspace" for deleting an entire word
 pub const WORD_BKSPC: char = 0x18 as char;
 
 /// A single keypress
 struct Keypress {
-    _key: char,
+    key: char,
     _time: Instant,
 }
 
@@ -24,7 +26,7 @@ impl Keypress {
     /// Create keypress from char with current time as instant
     fn from_chr(key: char) -> Self {
         Self {
-            _key: key,
+            key: key,
             _time: Instant::now(),
         }
     }
@@ -34,6 +36,7 @@ impl Keypress {
 struct TestWord<'a> {
     word: String,
     presses: Vec<Keypress>,
+    /// Renderable, incremental text "object"
     spans: Vec<Span<'a>>,
 }
 
@@ -47,20 +50,52 @@ impl From<String> for TestWord<'_> {
     }
 }
 
+impl TestWord<'_> {
+    /// Is the word fully and correctly typed
+    fn is_correct(&self) -> bool {
+        let mut s: String = "".to_string();
+        for e in self.presses.iter() {
+            match e.key {
+                ' ' => (),
+                BKSPC => {
+                    s.pop();
+                }
+                WORD_BKSPC => s = "".to_string(),
+                _ => s.push(e.key),
+            }
+        }
+        return s == self.word;
+    }
+
+    /// Does the word end in a space (has been typed, incorrectly or correctly)
+    fn is_typed(&self) -> bool {
+        if let Some(lp) = self.presses.last()
+            && lp.key == ' '
+        {
+            true
+        } else {
+            self.is_correct()
+        }
+    }
+}
+
 /// The actual typing test
 pub struct Test<'a> {
     words: Vec<TestWord<'a>>,
     word_i: usize,
     styles: Styles,
+    /// Message to the UI to be performed on next tick. Didn't feel like using an actual message system lmao
+    tx: SyncSender<UiRequest>,
 }
 
 impl<'a> Test<'a> {
     /// Create a new emtpy test, which must be initialised before use :D
-    pub fn new(s: Styles) -> Self {
+    pub fn new(s: Styles, tx: SyncSender<UiRequest>) -> Self {
         Test {
             words: Vec::new(),
             word_i: 0,
             styles: s,
+            tx: tx,
         }
     }
 
@@ -69,6 +104,7 @@ impl<'a> Test<'a> {
         let mut word = &mut self.words[self.word_i];
         match key.code {
             KeyCode::Char(' ') => {
+                word.presses.push(Keypress::from_chr(' '));
                 self.word_i += 1;
             }
             KeyCode::Char(chr) => {
@@ -112,6 +148,12 @@ impl<'a> Test<'a> {
                 }
             }
             _ => {}
+        }
+        // check for completion
+        if self.word_i >= self.words.len() - 1 && self.words[self.words.len() - 1].is_typed() {
+            self.tx
+                .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
+                .unwrap();
         }
     }
 
@@ -161,7 +203,7 @@ impl<'a> Test<'a> {
             .render(area, buf);
     }
 
-    /// Convert all testwords to styled spans with spacing, returned as a single line
+    /// Convert all testwords to styled spans with spacing, returned as a single line so that it wraps properly
     pub fn words_to_line(&self) -> Line<'a> {
         Line::from(
             self.words
@@ -171,5 +213,31 @@ impl<'a> Test<'a> {
                 .flatten()
                 .collect::<Vec<Span>>(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_keypress_correct() {
+        let tests: Vec<(&str, Vec<char>, bool)> = vec![
+            ("test", vec!['t', 'e', 's', 't'], true),
+            ("test", vec![' ', 'q', BKSPC, 't', 'e', 's', 't', ' '], true),
+            (
+                "test",
+                vec![
+                    't', 'e', 's', 't', 'a', 'b', 'c', WORD_BKSPC, 't', 'e', 's', 't', ' ',
+                ],
+                true,
+            ),
+            ("abcd", vec!['a', 'b', 'c', 'd', 'e'], false),
+        ];
+        for (word, chars, correct) in tests.into_iter() {
+            let mut tw: TestWord = word.to_string().into();
+            tw.presses = chars.into_iter().map(|c| Keypress::from_chr(c)).collect();
+            assert_eq!(tw.is_correct(), correct)
+        }
     }
 }
