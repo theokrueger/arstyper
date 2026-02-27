@@ -154,7 +154,7 @@ impl Args {
         if a.list {
             let mut h = io::stdout().lock();
             let _ = writeln!(h, "Available languages:");
-            for l in Lang::list() {
+            for l in Lang::list()? {
                 let _ = writeln!(h, "  {}", l.file_name().unwrap().to_str().unwrap());
             }
         } else if a.help_config {

@@ -5,12 +5,19 @@ use crate::{config::Config, lang::Lang, test::Test};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
-    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, poll},
+    crossterm::{
+        event::{
+            self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
+            PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags, poll,
+        },
+        execute,
+    },
     layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Paragraph, Tabs, Widget},
+    widgets::{Paragraph, Widget},
 };
+use std::io::stdout;
 use strum::{Display, EnumIter, FromRepr};
 
 pub struct Ui<'a> {
@@ -58,11 +65,12 @@ pub struct Styles {
     pub untyped: Style,
     pub typed: Style,
     pub incorrect: Style,
+    pub cursor: Style,
 }
 
 impl Ui<'_> {
-    pub fn new(cfg: Config) -> Self {
-        let lang = Lang::get_by_name(&cfg.lang);
+    pub fn new(cfg: Config) -> Result<Self, std::io::Error> {
+        let lang = Lang::get_by_name(&cfg.lang)?;
 
         let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
         let mode_sty = root_sty.bg(cfg.theme.accent);
@@ -71,6 +79,7 @@ impl Ui<'_> {
         let untyped_sty = root_sty.fg(cfg.theme.untyped_text);
         let typed_sty = root_sty.fg(cfg.theme.typed_text);
         let incorrect_sty = root_sty.fg(cfg.theme.incorrect_text);
+        let cursor_sty = root_sty.bg(cfg.theme.accent);
         let styles = Styles {
             root: root_sty,
             modeline: mode_sty,
@@ -79,8 +88,9 @@ impl Ui<'_> {
             untyped: untyped_sty,
             typed: typed_sty,
             incorrect: incorrect_sty,
+            cursor: cursor_sty,
         };
-        Self {
+        Ok(Self {
             styles: styles.clone(),
             test: Test::new(styles),
             state: State::default(),
@@ -90,11 +100,18 @@ impl Ui<'_> {
             clear_status_at: Local::now() + TimeDelta::seconds(5),
             cfg: cfg,
             lang: lang,
-        }
+        })
     }
 
     pub fn run(mut self) -> std::io::Result<()> {
         let mut terminal = ratatui::init();
+
+        let mut stdout = stdout();
+        execute!(
+            stdout,
+            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        )?;
+
         self.test
             .test_from(self.lang.gen_words(self.cfg.word_count as usize));
         while self.state != State::Stopped {
@@ -109,6 +126,7 @@ impl Ui<'_> {
             }
         }
 
+        execute!(stdout, PopKeyboardEnhancementFlags)?;
         ratatui::restore();
 
         Ok(())
@@ -230,7 +248,7 @@ impl Widget for &Ui<'_> {
         let [body_a, mode_a, status_a] = vertical.areas(area);
 
         match self.screen {
-            Screen::TestScreen => self.test.render(&self, body_a, buf),
+            Screen::TestScreen => self.test.render(body_a, buf),
             Screen::ResultsScreen => self.render_results(body_a, buf),
             Screen::StatisticsScreen => self.render_statistics(body_a, buf),
             Screen::AboutScreen => self.render_about(body_a, buf),

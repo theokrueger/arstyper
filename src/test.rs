@@ -1,30 +1,31 @@
 //! Typing test struct
-use crate::ui::{Styles, Ui};
+use crate::ui::Styles;
 
 use ratatui::{
     buffer::Buffer,
-    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span, Text, ToLine},
-    widgets::{Block, Borders, Padding, Paragraph, Tabs, Widget, Wrap},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    layout::Rect,
+    style::Stylize,
+    text::{Line, Span},
+    widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
 };
 use std::{cmp::min, time::Instant};
 
-const BKSPC: char = '';
+pub const BKSPC: char = 0x08 as char;
+pub const WORD_BKSPC: char = 0x18 as char;
 
 /// A single keypress
 struct Keypress {
-    key: char,
-    time: Instant,
+    _key: char,
+    _time: Instant,
 }
 
 impl Keypress {
     /// Create keypress from char with current time as instant
     fn from_chr(key: char) -> Self {
         Self {
-            key: key,
-            time: Instant::now(),
+            _key: key,
+            _time: Instant::now(),
         }
     }
 }
@@ -86,10 +87,28 @@ impl<'a> Test<'a> {
                 }
             }
             KeyCode::Backspace => {
-                word.presses.push(Keypress::from_chr(BKSPC));
-                let _ = word.spans.pop();
-                if self.word_i > 0 && word.spans.len() == 0 {
-                    self.word_i -= 1;
+                // (ctrl|alt) + backspace -> delete entire word
+                if key
+                    .modifiers
+                    .iter()
+                    .any(|m| m == KeyModifiers::CONTROL || m == KeyModifiers::ALT)
+                {
+                    // delete last word cause nothing was typed for this one
+                    if word.spans.len() == 0 {
+                        self.word_i -= 1;
+                        word = &mut self.words[self.word_i];
+                    }
+
+                    word.presses.push(Keypress::from_chr(WORD_BKSPC));
+                    word.spans = Vec::new();
+                }
+                // just backspace
+                else {
+                    word.presses.push(Keypress::from_chr(BKSPC));
+                    let _ = word.spans.pop();
+                    if self.word_i > 0 && word.spans.len() == 0 {
+                        self.word_i -= 1;
+                    }
                 }
             }
             _ => {}
@@ -102,11 +121,17 @@ impl<'a> Test<'a> {
         let mut sv = tw.spans.clone();
 
         // cursor
-        if self.word_i == word_i
-            && let Some(c) = tw.word.chars().nth(sv.len())
-        {
-            sv.push(Span::raw(c.to_string()).style(self.styles.accent));
+        if self.word_i == word_i {
+            match tw.word.chars().nth(sv.len()) {
+                Some(c) => sv.push(Span::raw(c.to_string()).style(self.styles.cursor)),
+                None => {
+                    // must be end of string, add stylized space and return.
+                    sv.push(Span::raw(' '.to_string()).style(self.styles.cursor));
+                    return sv;
+                }
+            };
         }
+
         // untyped portion
         let idx = min(sv.len(), tw.word.len());
         let ut = tw.word[idx..].to_string() + " ";
@@ -122,13 +147,13 @@ impl<'a> Test<'a> {
     }
 
     /// Render the test text
-    pub fn render(&self, ui: &Ui, area: Rect, buf: &mut Buffer) {
-        Paragraph::new(self.words_to_line(ui))
-            .style(ui.styles.root)
+    pub fn render(&self, area: Rect, buf: &mut Buffer) {
+        Paragraph::new(self.words_to_line())
+            .style(self.styles.root)
             .block(
                 Block::new()
                     .borders(Borders::TOP)
-                    .style(ui.styles.accent)
+                    .style(self.styles.accent)
                     .title("english 50".bold())
                     .padding(Padding::horizontal(1)),
             )
@@ -137,7 +162,7 @@ impl<'a> Test<'a> {
     }
 
     /// Convert all testwords to styled spans with spacing, returned as a single line
-    pub fn words_to_line(&self, ui: &Ui) -> Line<'a> {
+    pub fn words_to_line(&self) -> Line<'a> {
         Line::from(
             self.words
                 .iter()

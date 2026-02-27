@@ -1,15 +1,14 @@
 //! Loading and parsing of language files
 use std::{
     fs::{self, File},
-    io::{self, BufRead},
+    io::{self, BufRead, Error, ErrorKind},
     path::PathBuf,
-    process,
 };
 
 /// Representation of a language file.
 pub struct Lang {
     pub inorder: bool,
-    inorder_index: usize,
+    _inorder_index: usize,
     pub punctuated: bool,
     pub select_one: bool,
     pub select_all: bool,
@@ -18,7 +17,7 @@ pub struct Lang {
 
 impl Lang {
     /// Open a language files by its name, assuming it exists.
-    pub fn get_by_name(s: &str) -> Self {
+    pub fn get_by_name(s: &str) -> Result<Self, std::io::Error> {
         Self::get_by_path(&Self::path().join(s))
     }
 
@@ -40,19 +39,13 @@ impl Lang {
     /// word2
     /// ...
     /// ```
-    pub fn get_by_path(p: &PathBuf) -> Self {
-        let f = File::open(&p).unwrap_or_else(|e| {
-            println!(
-                "Error reading {}: {e}\nSee available languages with the '--list' flag.",
-                p.display()
-            );
-            process::exit(0b1)
-        });
+    pub fn get_by_path(p: &PathBuf) -> Result<Self, std::io::Error> {
+        let f = File::open(&p)?;
 
         let buf = io::BufReader::new(f).lines().map_while(Result::ok);
         let mut s = Self {
             inorder: false,
-            inorder_index: 0,
+            _inorder_index: 0,
             punctuated: false,
             select_one: false,
             select_all: false,
@@ -82,11 +75,13 @@ impl Lang {
         }
         // sanity check
         if s.select_one && s.select_all {
-            println!(
-                "Error reading {}: Language header has mutually exclusive options `select_one` and `select_all`! Please remove at least one of those options to use this language.",
-                p.display()
-            );
-            process::exit(0b1)
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!(
+                    "Error reading {}: Language header has mutually exclusive options `select_one` and `select_all`! Please remove at least one of those options to use this language.",
+                    p.display()
+                ),
+            ));
         }
 
         // unimplemented warn
@@ -106,16 +101,15 @@ impl Lang {
             }
         }
 
-        return s;
+        return Ok(s);
     }
 
     /// Return list of all language paths.
-    pub fn list() -> Vec<PathBuf> {
-        fs::read_dir(Self::path())
-            .expect("Unable to read language directory")
+    pub fn list() -> Result<Vec<PathBuf>, std::io::Error> {
+        Ok(fs::read_dir(Self::path())?
             .map(|e| e.unwrap().path())
             .filter(|p| p.is_file())
-            .collect::<Vec<PathBuf>>()
+            .collect::<Vec<PathBuf>>())
     }
 
     /// Path to language dir.

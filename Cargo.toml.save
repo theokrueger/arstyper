@@ -1,0 +1,15 @@
+[package]
+name = "arstyper"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.43"
+clap = { version = "4.5.57", features = ["derive"] }
+crossterm = "0.29.0"
+dirs = "6.0.0"
+rand = "0.10.0"
+ratatui = { version = "0.30.0", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+strum = { version = "0.27.2", featur9;5u9;5u9;5u9;5u9;5u9;5u9;5u9;5u9;5u9;5u9;5u] }
+toml = "0.9.11"
