@@ -1,15 +1,13 @@
 //! Test results struct
-use crate::ui::{Screen, Styles, UiRequest};
+use crate::ui::{Styles, UiRequest};
 
 use ratatui::{
     buffer::Buffer,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::Rect,
     style::Stylize,
-    text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
 };
-use std::{cmp::min, rc::Rc, sync::mpsc::SyncSender, time::Instant};
+use std::{rc::Rc, sync::mpsc::SyncSender};
 
 /// Typing test results
 pub struct Results {

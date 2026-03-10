@@ -1,13 +1,7 @@
 use crate::ui::{Styles, UiRequest};
-use ratatui::{
-    buffer::Buffer,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-    layout::Rect,
-    style::Stylize,
-    text::{Line, Span},
-    widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
-};
-use std::{cmp::min, rc::Rc, sync::mpsc::SyncSender, time::Instant};
+use ratatui::{buffer::Buffer, layout::Rect};
+use std::{rc::Rc, sync::mpsc::SyncSender};
+
 /// Renderable body screen for Arstyper
 pub trait ArstyperScreen {
     /// Create a new empty version of this screen

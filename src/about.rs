@@ -1,18 +1,16 @@
 //! "About this program" screen
 use crate::{
     traits::ArstyperScreen,
-    ui::{Screen, Styles, UiRequest},
+    ui::{Styles, UiRequest},
 };
 
 use ratatui::{
     buffer::Buffer,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::Rect,
     style::Stylize,
-    text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
 };
-use std::{cmp::min, rc::Rc, sync::mpsc::SyncSender, time::Instant};
+use std::{rc::Rc, sync::mpsc::SyncSender};
 
 /// About screen
 pub struct About {
