@@ -1,6 +1,4 @@
 //! Root UI
-pub mod color_preview;
-
 use crate::{config::Config, lang::Lang, test::Test};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{

@@ -1,6 +1,6 @@
 //! TOML configuration and CLI arguments
 use crate::lang::Lang;
-use crate::ui::color_preview::ColorPreview;
+use crate::color_preview::ColorPreview;
 use clap::Parser;
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};

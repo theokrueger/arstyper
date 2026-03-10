@@ -3,6 +3,7 @@ mod config;
 mod lang;
 mod test;
 mod ui;
+mod color_preview;
 
 use config::Config;
 use ui::Ui;
