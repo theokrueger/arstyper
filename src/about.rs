@@ -1,5 +1,8 @@
-//! Test results struct
-use crate::ui::{Screen, Styles, UiRequest};
+//! "About this program" screen
+use crate::{
+    traits::ArstyperScreen,
+    ui::{Screen, Styles, UiRequest},
+};
 
 use ratatui::{
     buffer::Buffer,
@@ -11,28 +14,25 @@ use ratatui::{
 };
 use std::{cmp::min, rc::Rc, sync::mpsc::SyncSender, time::Instant};
 
-/// Typing test results
-pub struct Results {
+/// About screen
+pub struct About {
     styles: Rc<Styles>,
-    /// Message to the UI to be performed on next tick. Didn't feel like using an actual message system lmao
     tx: SyncSender<UiRequest>,
 }
 
-impl Results {
-    /// Create a new emtpy test, which must be initialised before use :D
-    pub fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
+impl ArstyperScreen for About {
+    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
         Self { styles: s, tx: tx }
     }
 
-    /// Render the results
-    pub fn render(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("res")
+    fn render(&self, area: Rect, buf: &mut Buffer) {
+        Paragraph::new("help text")
             .style(self.styles.root)
             .block(
                 Block::new()
                     .borders(Borders::TOP)
                     .style(self.styles.accent)
-                    .title("Results".bold())
+                    .title("About".bold())
                     .padding(Padding::horizontal(1)),
             )
             .wrap(Wrap { trim: true })

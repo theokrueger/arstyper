@@ -9,7 +9,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
 };
-use std::{cmp::min, sync::mpsc::SyncSender, time::Instant};
+use std::{cmp::min, rc::Rc, sync::mpsc::SyncSender, time::Instant};
 
 /// A normal backspace
 pub const BKSPC: char = 0x08 as char;
@@ -83,7 +83,7 @@ impl TestWord<'_> {
 pub struct Test<'a> {
     words: Vec<TestWord<'a>>,
     word_i: usize,
-    styles: Styles,
+    styles: Rc<Styles>,
     /// Message to the UI to be performed on next tick. Didn't feel like using an actual message system lmao
     tx: SyncSender<UiRequest>,
     title: String,
@@ -91,7 +91,7 @@ pub struct Test<'a> {
 
 impl<'a> Test<'a> {
     /// Create a new emtpy test, which must be initialised before use :D
-    pub fn new(s: Styles, tx: SyncSender<UiRequest>) -> Self {
+    pub fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
         Self {
             words: Vec::new(),
             word_i: 0,

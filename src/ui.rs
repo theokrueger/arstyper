@@ -1,5 +1,7 @@
 //! Root UI
-use crate::{config::Config, lang::Lang, results::Results, test::Test};
+use crate::{
+    about::About, config::Config, lang::Lang, results::Results, test::Test, traits::ArstyperScreen,
+};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
@@ -17,6 +19,7 @@ use ratatui::{
 };
 use std::{
     io::stdout,
+    rc::Rc,
     sync::mpsc::{Receiver, SyncSender, sync_channel},
 };
 use strum::{Display, EnumIter, FromRepr};
@@ -32,13 +35,14 @@ pub struct Ui<'a> {
 
     test: Test<'a>,
     results: Results,
+    about: About,
 
     status: String,
     /// When the status message is to be cleared
     clear_status_at: DateTime<Local>,
 
     /// Text and widget styles, distilled from cfg
-    pub styles: Styles,
+    pub styles: Rc<Styles>,
 
     // communication between screens and stuff
     uireq_tx: SyncSender<UiRequest>,
@@ -100,7 +104,7 @@ impl Ui<'_> {
         let typed_sty = root_sty.fg(cfg.theme.typed_text);
         let incorrect_sty = root_sty.fg(cfg.theme.incorrect_text);
         let cursor_sty = root_sty.bg(cfg.theme.accent);
-        let styles = Styles {
+        let styles = Rc::new(Styles {
             root: root_sty,
             modeline: mode_sty,
             modeline_inv: mode_inv_sty,
@@ -109,13 +113,14 @@ impl Ui<'_> {
             typed: typed_sty,
             incorrect: incorrect_sty,
             cursor: cursor_sty,
-        };
+        });
 
         let (tx, rx) = sync_channel::<UiRequest>(2); // 2 to avoid lockups that should never happen anyways
         Ok(Self {
             styles: styles.clone(),
             test: Test::new(styles.clone(), tx.clone()),
-            results: Results::new(styles, tx.clone()),
+            results: Results::new(styles.clone(), tx.clone()),
+            about: About::new(styles.clone(), tx.clone()),
             state: State::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
@@ -196,10 +201,6 @@ impl Ui<'_> {
             }
         }
         Ok(())
-    }
-
-    fn render_results(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("res").render(area, buf);
     }
 
     fn render_statistics(&self, area: Rect, buf: &mut Buffer) {
@@ -284,7 +285,7 @@ impl Widget for &Ui<'_> {
             Screen::TestScreen => self.test.render(body_a, buf),
             Screen::ResultsScreen => self.results.render(body_a, buf),
             Screen::StatisticsScreen => self.render_statistics(body_a, buf),
-            Screen::AboutScreen => self.render_about(body_a, buf),
+            Screen::AboutScreen => self.about.render(body_a, buf),
         }
 
         self.render_modeline(mode_a, buf);
