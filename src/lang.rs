@@ -7,6 +7,7 @@ use std::{
 
 /// Representation of a language file.
 pub struct Lang {
+    pub name: String,
     pub inorder: bool,
     _inorder_index: usize,
     pub punctuated: bool,
@@ -18,7 +19,7 @@ pub struct Lang {
 impl Lang {
     /// Open a language files by its name, assuming it exists.
     pub fn get_by_name(s: &str) -> Result<Self, std::io::Error> {
-        Self::get_by_path(&Self::path().join(s))
+        Self::get_by_path(&Self::path().join(s), s)
     }
 
     /// Open a language file by actual path, assuming it exists.
@@ -39,11 +40,12 @@ impl Lang {
     /// word2
     /// ...
     /// ```
-    pub fn get_by_path(p: &PathBuf) -> Result<Self, std::io::Error> {
+    pub fn get_by_path(p: &PathBuf, name: &str) -> Result<Self, std::io::Error> {
         let f = File::open(&p)?;
 
         let buf = io::BufReader::new(f).lines().map_while(Result::ok);
         let mut s = Self {
+            name: name.to_string(),
             inorder: false,
             _inorder_index: 0,
             punctuated: false,

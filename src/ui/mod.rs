@@ -139,6 +139,8 @@ impl Ui<'_> {
 
         self.test
             .test_from(self.lang.gen_words(self.cfg.word_count as usize));
+        self.test
+            .set_title(format!("{} {}", self.lang.name, self.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
         while self.state != State::Stopped {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;

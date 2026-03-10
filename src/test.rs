@@ -86,6 +86,7 @@ pub struct Test<'a> {
     styles: Styles,
     /// Message to the UI to be performed on next tick. Didn't feel like using an actual message system lmao
     tx: SyncSender<UiRequest>,
+    title: String,
 }
 
 impl<'a> Test<'a> {
@@ -96,7 +97,13 @@ impl<'a> Test<'a> {
             word_i: 0,
             styles: s,
             tx: tx,
+            title: "".to_string(),
         }
+    }
+
+    /// Set title
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
     }
 
     /// Handle keypress events for this test
@@ -122,6 +129,10 @@ impl<'a> Test<'a> {
                         .push(Span::raw(chr.to_string()).style(self.styles.incorrect));
                 }
             }
+            KeyCode::Tab => self
+                .tx
+                .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
+                .unwrap(),
             KeyCode::Backspace => {
                 // (ctrl|alt) + backspace -> delete entire word
                 if key
@@ -196,7 +207,7 @@ impl<'a> Test<'a> {
                 Block::new()
                     .borders(Borders::TOP)
                     .style(self.styles.accent)
-                    .title("english 50".bold())
+                    .title(self.title.clone().bold()) // TODO this is annoying and bad
                     .padding(Padding::horizontal(1)),
             )
             .wrap(Wrap { trim: true })
