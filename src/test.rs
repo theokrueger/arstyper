@@ -42,7 +42,7 @@ struct TestWord<'a> {
 
 impl From<String> for TestWord<'_> {
     fn from(string: String) -> Self {
-        TestWord {
+        Self {
             presses: Vec::with_capacity(string.len()),
             word: string,
             spans: Vec::new(),
@@ -92,7 +92,7 @@ pub struct Test<'a> {
 impl<'a> Test<'a> {
     /// Create a new emtpy test, which must be initialised before use :D
     pub fn new(s: Styles, tx: SyncSender<UiRequest>) -> Self {
-        Test {
+        Self {
             words: Vec::new(),
             word_i: 0,
             styles: s,

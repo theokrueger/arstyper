@@ -1,5 +1,5 @@
 //! Root UI
-use crate::{config::Config, lang::Lang, test::Test};
+use crate::{config::Config, lang::Lang, results::Results, test::Test};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
@@ -31,6 +31,7 @@ pub struct Ui<'a> {
     last_screen: Screen,
 
     test: Test<'a>,
+    results: Results,
 
     status: String,
     /// When the status message is to be cleared
@@ -113,7 +114,8 @@ impl Ui<'_> {
         let (tx, rx) = sync_channel::<UiRequest>(2); // 2 to avoid lockups that should never happen anyways
         Ok(Self {
             styles: styles.clone(),
-            test: Test::new(styles, tx.clone()),
+            test: Test::new(styles.clone(), tx.clone()),
+            results: Results::new(styles, tx.clone()),
             state: State::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
@@ -280,7 +282,7 @@ impl Widget for &Ui<'_> {
 
         match self.screen {
             Screen::TestScreen => self.test.render(body_a, buf),
-            Screen::ResultsScreen => self.render_results(body_a, buf),
+            Screen::ResultsScreen => self.results.render(body_a, buf),
             Screen::StatisticsScreen => self.render_statistics(body_a, buf),
             Screen::AboutScreen => self.render_about(body_a, buf),
         }

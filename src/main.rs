@@ -1,9 +1,10 @@
 //! arstyper
+mod color_preview;
 mod config;
 mod lang;
+mod results;
 mod test;
 mod ui;
-mod color_preview;
 
 use config::Config;
 use ui::Ui;
