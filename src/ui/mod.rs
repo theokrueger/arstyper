@@ -1,13 +1,21 @@
 //! Root UI
-use crate::{
-    about::About, config::Config, lang::Lang, results::Results, test::Test, traits::ArstyperScreen,
-};
+mod about;
+use about::About;
+pub mod color_preview;
+mod results;
+use results::Results;
+mod test;
+use test::Test;
+mod stats;
+use stats::Stats;
+
+use crate::{config::Config, lang::Lang, traits::ArstyperScreen};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
     crossterm::{
         event::{
-            self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
+            self, Event, KeyCode, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
             PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags, poll,
         },
         execute,
@@ -15,7 +23,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Paragraph, Widget},
+    widgets::Widget,
 };
 use std::{
     io::stdout,
@@ -35,6 +43,7 @@ pub struct Ui<'a> {
 
     test: Test<'a>,
     results: Results,
+    stats: Stats,
     about: About,
 
     status: String,
@@ -56,7 +65,7 @@ pub enum State {
     Stopped,
 }
 
-#[derive(Default, Display, Clone, FromRepr, EnumIter)]
+#[derive(Default, Display, Clone, FromRepr, EnumIter, PartialEq)]
 /// Screen to display in body area
 pub enum Screen {
     #[default]
@@ -64,8 +73,8 @@ pub enum Screen {
     TestScreen,
     #[strum(to_string = "Results")]
     ResultsScreen,
-    #[strum(to_string = "Statistics")]
-    StatisticsScreen,
+    #[strum(to_string = "Stats")]
+    StatsScreen,
     #[strum(to_string = "About")]
     AboutScreen,
 }
@@ -74,13 +83,16 @@ pub enum Screen {
 pub enum UiRequest {
     /// Change the screen (duh)
     ChangeScreen(Screen),
+    /// Go to the last screen
+    GoToLastScreen,
+    /// Clear status
+    ClearStatus,
     //// Set the statusbar to this message. Will overwrite any existing message
     //DisplayStatus(String, DateTime<Local>),
     //// Discard current test and create a new one
     //NewTest,
 }
 
-#[derive(Clone)]
 pub struct Styles {
     pub root: Style,
     pub modeline: Style,
@@ -115,19 +127,25 @@ impl Ui<'_> {
             cursor: cursor_sty,
         });
 
-        let (tx, rx) = sync_channel::<UiRequest>(2); // 2 to avoid lockups that should never happen anyways
+        let (tx, rx) = sync_channel::<UiRequest>(5);
         Ok(Self {
             styles: styles.clone(),
+
             test: Test::new(styles.clone(), tx.clone()),
             results: Results::new(styles.clone(), tx.clone()),
             about: About::new(styles.clone(), tx.clone()),
+            stats: Stats::new(styles.clone(), tx.clone()),
+
             state: State::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
+
             status: "Welcome to arstyper! Press <F1> for help, or 'Ctrl+C' to exit.".to_string(),
             clear_status_at: Local::now() + TimeDelta::seconds(5),
+
             cfg: cfg,
             lang: lang,
+
             uireq_tx: tx,
             uireq_rx: rx,
         })
@@ -157,9 +175,11 @@ impl Ui<'_> {
             }
 
             // message handling
-            if let Ok(msg) = self.uireq_rx.try_recv() {
+            while let Ok(msg) = self.uireq_rx.try_recv() {
                 match msg {
-                    UiRequest::ChangeScreen(s) => self.screen = s,
+                    UiRequest::ChangeScreen(s) => self.change_screen(s),
+                    UiRequest::ClearStatus => self.clear_status(),
+                    UiRequest::GoToLastScreen => self.change_screen(self.last_screen.clone()),
                 }
             }
         }
@@ -182,49 +202,25 @@ impl Ui<'_> {
                             self.state = State::Stopped
                         }
                     }
-                    KeyCode::F(1) => {
-                        self.set_status_for(
-                            "Press <ESC> or 'q' to go back.".to_string(),
-                            TimeDelta::seconds(3),
-                        );
-                        self.change_screen(Screen::AboutScreen)
-                    }
+                    KeyCode::F(1) => self.change_screen(Screen::AboutScreen),
                     _ => {}
                 }
 
                 // per-screen keys
                 match self.screen {
-                    Screen::AboutScreen => self.handle_about_events(key),
+                    Screen::AboutScreen => self.about.handle_events(key),
                     Screen::TestScreen => self.test.handle_events(key),
-                    _ => {}
+                    Screen::ResultsScreen => self.results.handle_events(key),
+                    Screen::StatsScreen => self.stats.handle_events(key),
                 }
             }
         }
         Ok(())
     }
 
-    fn render_statistics(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("stats").render(area, buf);
-    }
-
-    fn render_about(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("arstyper by theokrueger").render(area, buf);
-    }
-
-    fn handle_about_events(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Esc | KeyCode::Char('q') => {
-                self.clear_status();
-                self.change_screen(self.last_screen.clone());
-            }
-            _ => {}
-        }
-    }
-
     fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
         let [c1, time_a] =
             Layout::horizontal([Constraint::Min(0), Constraint::Length(8)]).areas(area);
-
         let mode = format!("{}", self.screen);
         Line::from(vec![
             Span::raw("arstyper "),
@@ -270,7 +266,9 @@ impl Ui<'_> {
     }
 
     fn change_screen(&mut self, s: Screen) {
-        self.last_screen = self.screen.clone();
+        if self.screen != s {
+            self.last_screen = self.screen.clone();
+        }
         self.screen = s;
     }
 }
@@ -284,7 +282,7 @@ impl Widget for &Ui<'_> {
         match self.screen {
             Screen::TestScreen => self.test.render(body_a, buf),
             Screen::ResultsScreen => self.results.render(body_a, buf),
-            Screen::StatisticsScreen => self.render_statistics(body_a, buf),
+            Screen::StatsScreen => self.stats.render(body_a, buf),
             Screen::AboutScreen => self.about.render(body_a, buf),
         }
 

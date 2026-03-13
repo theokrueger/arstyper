@@ -1,10 +1,6 @@
 //! arstyper
-mod about;
-mod color_preview;
 mod config;
 mod lang;
-mod results;
-mod test;
 mod traits;
 mod ui;
 

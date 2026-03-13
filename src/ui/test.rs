@@ -1,5 +1,8 @@
 //! Typing test struct
-use crate::ui::{Screen, Styles, UiRequest};
+use crate::{
+    traits::ArstyperScreen,
+    ui::{Screen, Styles, UiRequest},
+};
 
 use ratatui::{
     buffer::Buffer,
@@ -89,9 +92,8 @@ pub struct Test<'a> {
     title: String,
 }
 
-impl<'a> Test<'a> {
-    /// Create a new emtpy test, which must be initialised before use :D
-    pub fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
+impl ArstyperScreen for Test<'_> {
+    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
         Self {
             words: Vec::new(),
             word_i: 0,
@@ -101,13 +103,21 @@ impl<'a> Test<'a> {
         }
     }
 
-    /// Set title
-    pub fn set_title(&mut self, title: String) {
-        self.title = title;
+    fn render(&self, area: Rect, buf: &mut Buffer) {
+        Paragraph::new(self.words_to_line())
+            .style(self.styles.root)
+            .block(
+                Block::new()
+                    .borders(Borders::TOP)
+                    .style(self.styles.accent)
+                    .title(self.title.as_str().bold())
+                    .padding(Padding::horizontal(1)),
+            )
+            .wrap(Wrap { trim: true })
+            .render(area, buf);
     }
 
-    /// Handle keypress events for this test
-    pub fn handle_events(&mut self, key: KeyEvent) {
+    fn handle_events(&mut self, key: KeyEvent) {
         let mut word = &mut self.words[self.word_i];
         match key.code {
             KeyCode::Char(' ') => {
@@ -167,6 +177,13 @@ impl<'a> Test<'a> {
                 .unwrap();
         }
     }
+}
+
+impl<'a> Test<'a> {
+    /// Set title
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
+    }
 
     /// Return full word as vec of spans, including untyped portion
     fn tw_as_span_vec(&self, word_i: usize, tw: &TestWord<'a>) -> Vec<Span<'a>> {
@@ -197,21 +214,6 @@ impl<'a> Test<'a> {
         self.words = words
             .map(|w| w.to_lowercase().into())
             .collect::<Vec<TestWord>>();
-    }
-
-    /// Render the test text
-    pub fn render(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new(self.words_to_line())
-            .style(self.styles.root)
-            .block(
-                Block::new()
-                    .borders(Borders::TOP)
-                    .style(self.styles.accent)
-                    .title(self.title.clone().bold()) // TODO this is annoying and bad
-                    .padding(Padding::horizontal(1)),
-            )
-            .wrap(Wrap { trim: true })
-            .render(area, buf);
     }
 
     /// Convert all testwords to styled spans with spacing, returned as a single line so that it wraps properly
