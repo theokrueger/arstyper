@@ -19,13 +19,18 @@ use ratatui::{
         Widget, Wrap,
     },
 };
-use std::{rc::Rc, sync::mpsc::SyncSender};
+use std::{
+    cmp::{max, min},
+    num::Saturating,
+    rc::Rc,
+    sync::mpsc::SyncSender,
+};
 
 const ABOUT_TEXT: &str = include_str!("./ABOUT.txt"); // easier to write there than here
 
 /// About screen
 pub struct About {
-    scroll: ScrollbarState,
+    scroll: u16,
     styles: Rc<Styles>,
     tx: SyncSender<UiRequest>,
 }
@@ -33,7 +38,7 @@ pub struct About {
 impl ArstyperScreen for About {
     fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
         Self {
-            scroll: ScrollbarState::new(ABOUT_TEXT.lines().count()),
+            scroll: 0,
             styles: s,
             tx: tx,
         }
@@ -42,6 +47,7 @@ impl ArstyperScreen for About {
     fn render(&self, area: Rect, buf: &mut Buffer) {
         let [body_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(area);
         let [text_a, scrollbar_a] = Layout::horizontal([Min(0), Length(1)]).areas(body_a);
+
         // body text
         Paragraph::new(ABOUT_TEXT)
             .style(self.styles.root)
@@ -53,16 +59,14 @@ impl ArstyperScreen for About {
                     .padding(Padding::horizontal(1)),
             )
             .wrap(Wrap { trim: true })
+            .scroll((self.scroll, 0))
             .render(text_a, buf);
 
         // scrollbar
+        let mut state = ScrollbarState::new(ABOUT_TEXT.lines().count());
         Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .style(self.styles.root)
-            .render(
-                scrollbar_a,
-                buf,
-                &mut ScrollbarState::new(ABOUT_TEXT.lines().count()),
-            );
+            .render(scrollbar_a, buf, &mut state);
 
         // footer
         Line::from("Press <Up>/<Down> to scroll or 'q' to go back.")
@@ -76,8 +80,8 @@ impl ArstyperScreen for About {
             KeyCode::Char('q') => {
                 self.tx.send(UiRequest::GoToLastScreen).unwrap();
             }
-            KeyCode::Up => self.scroll.prev(),
-            KeyCode::Down => self.scroll.next(),
+            KeyCode::Up => self.scroll = max(self.scroll, 1) - 1,
+            KeyCode::Down => self.scroll = min(self.scroll + 1, (ABOUT_TEXT.len() - 1) as u16),
             _ => {}
         }
     }

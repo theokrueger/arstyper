@@ -37,7 +37,7 @@ pub struct Ui<'a> {
     cfg: Config,
     lang: Lang,
 
-    state: State,
+    state: AppState,
     screen: Screen,
     last_screen: Screen,
 
@@ -59,7 +59,7 @@ pub struct Ui<'a> {
 }
 
 #[derive(Default, PartialEq)]
-pub enum State {
+pub enum AppState {
     #[default]
     Running,
     Stopped,
@@ -136,7 +136,7 @@ impl Ui<'_> {
             about: About::new(styles.clone(), tx.clone()),
             stats: Stats::new(styles.clone(), tx.clone()),
 
-            state: State::default(),
+            state: AppState::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
 
@@ -164,7 +164,7 @@ impl Ui<'_> {
             .test_from(self.lang.gen_words(self.cfg.word_count as usize));
         self.test
             .set_title(format!("{} {}", self.lang.name, self.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
-        while self.state != State::Stopped {
+        while self.state != AppState::Stopped {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;
 
@@ -199,7 +199,7 @@ impl Ui<'_> {
                 match key.code {
                     KeyCode::Char('c') => {
                         if key.modifiers.contains(KeyModifiers::CONTROL) {
-                            self.state = State::Stopped
+                            self.state = AppState::Stopped
                         }
                     }
                     KeyCode::F(1) => self.change_screen(Screen::AboutScreen),

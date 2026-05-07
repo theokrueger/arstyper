@@ -1,7 +1,7 @@
 //! Display all standard color combos for terminals
 //! Called specially as a help argument
 
-use crate::ui::State;
+use crate::ui::AppState;
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
@@ -44,7 +44,7 @@ macro_rules! color_line {
 }
 
 pub struct ColorPreview {
-    state: State,
+    state: AppState,
     lines: Vec<ColorLine>,
     line_sel: usize,
 }
@@ -54,7 +54,7 @@ const N_LINES: usize = N_COLORS + 4;
 impl ColorPreview {
     pub fn new() -> Self {
         Self {
-            state: State::default(),
+            state: AppState::default(),
             lines: vec![
                 color_line!(Color::Black, true),
                 color_line!(Color::DarkGray, true),
@@ -79,7 +79,7 @@ impl ColorPreview {
 
     pub fn run(mut self) -> std::io::Result<()> {
         let mut terminal = ratatui::init();
-        while self.state != State::Stopped {
+        while self.state != AppState::Stopped {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;
         }
@@ -93,10 +93,10 @@ impl ColorPreview {
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
                 match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => self.state = State::Stopped,
+                    KeyCode::Char('q') | KeyCode::Esc => self.state = AppState::Stopped,
                     KeyCode::Char('c') => {
                         if key.modifiers.contains(KeyModifiers::CONTROL) {
-                            self.state = State::Stopped
+                            self.state = AppState::Stopped
                         }
                     }
                     KeyCode::Left => self.select_prev_palette(),
