@@ -45,11 +45,11 @@ impl ArstyperScreen for About {
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer) {
-        let [body_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(area);
-        let [text_a, scrollbar_a] = Layout::horizontal([Min(0), Length(1)]).areas(body_a);
+        let [body_a, scrollbar_a] = Layout::horizontal([Min(0), Length(1)]).areas(area);
+        let [text_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(body_a);
 
         // body text
-        Paragraph::new(ABOUT_TEXT)
+        let p = Paragraph::new(ABOUT_TEXT)
             .style(self.styles.root)
             .block(
                 Block::new()
@@ -58,15 +58,17 @@ impl ArstyperScreen for About {
                     .title(format!("{}", Screen::AboutScreen).bold())
                     .padding(Padding::horizontal(1)),
             )
-            .wrap(Wrap { trim: true })
-            .scroll((self.scroll, 0))
-            .render(text_a, buf);
+            .wrap(Wrap { trim: false })
+            .scroll((self.scroll, 0));
 
         // scrollbar
-        let mut state = ScrollbarState::new(ABOUT_TEXT.lines().count());
+        let mut state =
+            ScrollbarState::new(p.line_count(text_a.width)).position(self.scroll as usize);
         Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .style(self.styles.root)
             .render(scrollbar_a, buf, &mut state);
+
+        p.render(text_a, buf);
 
         // footer
         Line::from("Press <Up>/<Down> to scroll or 'q' to go back.")
@@ -81,7 +83,7 @@ impl ArstyperScreen for About {
                 self.tx.send(UiRequest::GoToLastScreen).unwrap();
             }
             KeyCode::Up => self.scroll = max(self.scroll, 1) - 1,
-            KeyCode::Down => self.scroll = min(self.scroll + 1, (ABOUT_TEXT.len() - 1) as u16),
+            KeyCode::Down => self.scroll = min(self.scroll + 1, (ABOUT_TEXT.len() / 30) as u16), // TODO bad length estimate lmao
             _ => {}
         }
     }

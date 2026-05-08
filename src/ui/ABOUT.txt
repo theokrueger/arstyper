@@ -1,3 +1,42 @@
-Arstyper is a minimalistic terminal-based typing test.
+arstyper is a minimalistic terminal-based typing test.
 
-* Usage
+Inspired by Monkeytype and ttyper, arstyper offers a full-featured and customizable offline typing experience, complete with in-depth stat tracking beyond any reasonable needs.
+
+* Controls
+Under the typing screen:
+  - Type using alphanumeric+symbol keys.
+  - Press <Tab> to end the test.
+  - Press <Ctrl-C> to exit the program.
+  - Press <F1> to see this page.
+
+Under other screens:
+  - Press <q> to go back to the previous screen.
+  - See additional controls listed at the bottom of the screen.
+
+* Statistics
+TBD
+
+* Config
+The config is located at one of the following locations:
+  Linux: ~/.config/arstyper.toml
+  MacOS: $HOME/Library/Application Support/arstyper.toml
+  Windows: %localappdata%/arstyper.toml
+
+Config options are self-descriptive.
+
+Run 'arstyper --help-colors' to view a list of all colors and their names
+
+Run 'arstyper --help-config' for additional config information
+
+* Custom Tests
+Test files are stored in one of the following locations:
+  Linux: ~/.local/share/arstyper/
+  MacOS: $HOME/Library/Application Support/arstyper/
+  Windows: %localappdata%/arstyper/
+
+Simply create a new file there based on the formatting of other tests. arstyper automatically detects languages in that folder.
+
+* Contribute
+Found a bug or want to contribute code? Go to:
+  https://gitlab.com/theokrueger/arstyper
+  https://github.com/theokrueger/arstyper

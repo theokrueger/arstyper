@@ -140,7 +140,7 @@ impl Ui<'_> {
             screen: Screen::default(),
             last_screen: Screen::default(),
 
-            status: "Welcome to arstyper! Press <F1> for help, or 'Ctrl+C' to exit.".to_string(),
+            status: "Welcome to arstyper! Press <F1> for help, or <Ctrl-C> to exit.".to_string(),
             clear_status_at: Local::now() + TimeDelta::seconds(5),
 
             cfg: cfg,
