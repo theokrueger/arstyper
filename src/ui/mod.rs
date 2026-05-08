@@ -154,6 +154,7 @@ impl Ui<'_> {
     pub fn run(mut self) -> std::io::Result<()> {
         let mut terminal = ratatui::init();
 
+        // enter raw mode
         let mut stdout = stdout();
         execute!(
             stdout,
@@ -184,6 +185,7 @@ impl Ui<'_> {
             }
         }
 
+        // exit raw mode
         execute!(stdout, PopKeyboardEnhancementFlags)?;
         ratatui::restore();
 
