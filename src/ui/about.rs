@@ -13,7 +13,7 @@ use ratatui::{
     },
     prelude::StatefulWidget,
     style::Stylize,
-    text::Line,
+    text::{Line, Span},
     widgets::{
         Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Widget, Wrap,
@@ -35,6 +35,16 @@ pub struct About {
     tx: SyncSender<UiRequest>,
 }
 
+impl About {
+    fn scrolldown(&mut self, n: u16) {
+        self.scroll = min(self.scroll + n, (ABOUT_TEXT.len() / 30) as u16); // TODO bad length estimate lmao
+    }
+
+    fn scrollup(&mut self, n: u16) {
+        self.scroll = max(self.scroll, n) - n;
+    }
+}
+
 impl ArstyperScreen for About {
     fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
         Self {
@@ -48,8 +58,17 @@ impl ArstyperScreen for About {
         let [body_a, scrollbar_a] = Layout::horizontal([Min(0), Length(1)]).areas(area);
         let [text_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(body_a);
 
+        // parse text into spans n stuff
+        let mut text = Vec::<Line>::with_capacity(50);
+        for line in ABOUT_TEXT.lines() {
+            if line.len() >= 3 && &line[0..2] == "* " {
+                text.push(Line::from(line[2..].bold()));
+            } else {
+                text.push(Line::from(line));
+            }
+        }
         // body text
-        let p = Paragraph::new(ABOUT_TEXT)
+        let p = Paragraph::new(text)
             .style(self.styles.root)
             .block(
                 Block::new()
@@ -71,7 +90,7 @@ impl ArstyperScreen for About {
         p.render(text_a, buf);
 
         // footer
-        Line::from("Press <Up>/<Down> to scroll or 'q' to go back.")
+        Line::from("Use ⭡/⭣ to scroll or 'q' to go back.")
             .style(self.styles.root)
             .centered()
             .render(footer_a, buf);
@@ -82,8 +101,10 @@ impl ArstyperScreen for About {
             KeyCode::Char('q') => {
                 self.tx.send(UiRequest::GoToLastScreen).unwrap();
             }
-            KeyCode::Up => self.scroll = max(self.scroll, 1) - 1,
-            KeyCode::Down => self.scroll = min(self.scroll + 1, (ABOUT_TEXT.len() / 30) as u16), // TODO bad length estimate lmao
+            KeyCode::Up => self.scrollup(1),
+            KeyCode::Down => self.scrolldown(1),
+            KeyCode::PageUp => self.scrollup(15),
+            KeyCode::PageDown => self.scrolldown(15),
             _ => {}
         }
     }

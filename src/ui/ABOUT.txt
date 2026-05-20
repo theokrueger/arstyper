@@ -25,7 +25,6 @@ The config is located at one of the following locations:
 Config options are self-descriptive.
 
 Run 'arstyper --help-colors' to view a list of all colors and their names
-
 Run 'arstyper --help-config' for additional config information
 
 * Custom Tests
@@ -40,3 +39,6 @@ Simply create a new file there based on the formatting of other tests. arstyper 
 Found a bug or want to contribute code? Go to:
   https://gitlab.com/theokrueger/arstyper
   https://github.com/theokrueger/arstyper
+
+Or send an email to:
+  mailto:arstyper@theokrueger.dev
