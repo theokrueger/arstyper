@@ -1,7 +1,7 @@
 //! "About this program" screen
 use crate::{
     traits::ArstyperScreen,
-    ui::{Screen, Styles, UiRequest},
+    ui::{Styles, UiRequest},
 };
 
 use ratatui::{
@@ -13,7 +13,7 @@ use ratatui::{
     },
     prelude::StatefulWidget,
     style::Stylize,
-    text::{Line, Span},
+    text::Line,
     widgets::{
         Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Widget, Wrap,
@@ -21,7 +21,6 @@ use ratatui::{
 };
 use std::{
     cmp::{max, min},
-    num::Saturating,
     rc::Rc,
     sync::mpsc::SyncSender,
 };

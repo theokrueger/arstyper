@@ -11,7 +11,7 @@ use ratatui::{
     style::Stylize,
     text::{Line, Span},
     widgets::{
-        Block, BorderType, Borders, Clear, List, ListDirection, ListState, Padding, Paragraph,
+        Block, BorderType, Borders, Clear, Padding, Paragraph,
         Widget, Wrap,
     },
 };
@@ -49,7 +49,7 @@ pub struct MenuBar {
 
 fn filter_settings(query: &str) -> Vec<(&'static str, usize)> {
     let mut ret: Vec<(&str, usize)> = Vec::new();
-    let mut cnt = 0;
+    let _cnt = 0;
     for (i, s) in SETTINGS.iter().enumerate() {
         if s.0.to_lowercase().contains(query) || s.2.contains(query) {
             ret.push((s.0, i));
@@ -87,7 +87,7 @@ impl ArstyperScreen for MenuBar {
         let n: usize = list_a.height.into();
         let start: usize = (min(max(items.len(), n) - n, max(n / 2, self.index) - n / 2)).into();
         let end: usize = (start + n).into();
-        let mut lines = items
+        let lines = items
             .iter()
             .enumerate()
             .filter_map(|(i, x)| {

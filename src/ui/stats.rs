@@ -38,5 +38,5 @@ impl ArstyperScreen for Stats {
             .render(area, buf);
     }
 
-    fn handle_events(&mut self, key: KeyEvent) {}
+    fn handle_events(&mut self, _key: KeyEvent) {}
 }
