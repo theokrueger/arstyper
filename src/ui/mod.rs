@@ -25,42 +25,161 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Paragraph, Widget, Wrap},
+    widgets::{Paragraph, StatefulWidget, StatefulWidgetRef, Widget, Wrap},
 };
 use std::{
-    io::stdout,
+    io::{self, stdout},
     rc::Rc,
     sync::mpsc::{Receiver, SyncSender, sync_channel},
+    time::Duration,
 };
 use strum::{Display, EnumIter, FromRepr};
 
-/// Fat UI struct is poorly named, basically is just the whole program besides config loading.
-pub struct Ui<'a> {
-    cfg: Config,
-    lang: Lang,
+/// Main UI widget
+pub struct Ui {}
 
-    state: AppState,
-    screen: Screen,
-    last_screen: Screen,
-    overlay: Overlay,
+impl Ui {
+    pub fn new() -> Self {
+        Self {}
+    }
 
-    test: Test<'a>,
-    results: Results,
-    stats: Stats,
-    about: About,
+    pub fn tick(&self, state: &mut UiState<'static>) -> io::Result<()> {
+        self.handle_events(state)?;
 
-    menubar: MenuBar,
+        // non-event-driven state logic
+        let t = Local::now();
+        if t >= state.clear_status_at {
+            state.clear_status();
+        }
 
-    status: String,
+        // message handling
+        while let Ok(msg) = state.uireq_rx.try_recv() {
+            match msg {
+                UiRequest::Exit => state.state = AppState::Stopped,
+                UiRequest::ChangeScreen(s) => state.change_screen(s),
+                UiRequest::ClearStatus => state.clear_status(),
+                UiRequest::GoToLastScreen => state.change_screen(state.last_screen.clone()),
+                UiRequest::ShowOverlay(o) => state.overlay = o,
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn handle_events(&self, state: &mut UiState<'static>) -> io::Result<()> {
+        if poll(Duration::from_secs(1))?
+            && let Event::Key(key) = event::read()?
+        {
+            if key.kind == KeyEventKind::Press {
+                // global keys
+                match key.code {
+                    KeyCode::Char('c') => {
+                        if key.modifiers.contains(KeyModifiers::CONTROL) {
+                            state.state = AppState::Stopped
+                        }
+                    }
+                    KeyCode::F(1) => {
+                        if state.overlay == Overlay::None {
+                            state.change_screen(Screen::AboutScreen)
+                        }
+                    }
+                    KeyCode::Esc => {
+                        state.overlay = if state.overlay == Overlay::None {
+                            Overlay::MenuBar
+                        } else {
+                            Overlay::None
+                        }
+                    }
+                    _ => {}
+                }
+
+                // overlay takes precedent over screen
+                match state.overlay {
+                    Overlay::None => match state.screen {
+                        Screen::AboutScreen => state.about.handle_events(key),
+                        Screen::TestScreen => state.test.handle_events(key),
+                        Screen::ResultsScreen => state.results.handle_events(key),
+                        Screen::StatsScreen => state.stats.handle_events(key),
+                    },
+                    Overlay::MenuBar => state.menubar.handle_events(key),
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl StatefulWidgetRef for Ui {
+    type State = UiState<'static>;
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        if area.width < 20 || area.height < 10 {
+            Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
+                .wrap(Wrap { trim: true })
+                .render(area, buf);
+            return;
+        }
+
+        use Constraint::{Length, Min, Percentage};
+        let vertical = Layout::vertical([Min(0), Length(1), Length(1)]);
+        let [body_a, mode_a, status_a] = vertical.areas(area);
+
+        match state.screen {
+            Screen::TestScreen => state.test.render(body_a, buf),
+            Screen::ResultsScreen => state.results.render(body_a, buf),
+            Screen::StatsScreen => state.stats.render(body_a, buf),
+            Screen::AboutScreen => state.about.render(body_a, buf),
+        }
+
+        match state.overlay {
+            Overlay::None => {}
+            Overlay::MenuBar => {
+                let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
+                let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
+                let [_, mbv_a, _] = v.areas(body_a);
+                let [_, mb_a, _] = h.areas(mbv_a);
+                state.menubar.render(mb_a, buf);
+            }
+        }
+
+        state.render_modeline(mode_a, buf);
+        state.render_status(status_a, buf);
+    }
+}
+
+impl StatefulWidget for &Ui {
+    type State = UiState<'static>;
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.render_ref(area, buf, state);
+    }
+}
+
+/// State of main UI and all subwidgets
+pub struct UiState<'a> {
+    pub cfg: Config,
+    pub lang: Lang,
+
+    pub state: AppState,
+    pub screen: Screen,
+    pub last_screen: Screen,
+    pub overlay: Overlay,
+
+    pub test: Test<'a>,
+    pub results: Results,
+    pub stats: Stats,
+    pub about: About,
+
+    pub menubar: MenuBar,
+
+    pub status: String,
     /// When the status message is to be cleared
-    clear_status_at: DateTime<Local>,
+    pub clear_status_at: DateTime<Local>,
 
     /// Text and widget styles, distilled from cfg
     pub styles: Rc<Styles>,
 
     // communication between screens and stuff
-    uireq_tx: SyncSender<UiRequest>,
-    uireq_rx: Receiver<UiRequest>,
+    pub uireq_tx: SyncSender<UiRequest>,
+    pub uireq_rx: Receiver<UiRequest>,
 }
 
 #[derive(Default, PartialEq)]
@@ -124,7 +243,7 @@ pub struct Styles {
     pub cursor: Style,
 }
 
-impl Ui<'_> {
+impl UiState<'_> {
     pub fn new(cfg: Config) -> Result<Self, std::io::Error> {
         let lang = Lang::get_by_name(&cfg.lang)?;
 
@@ -147,7 +266,7 @@ impl Ui<'_> {
         });
 
         let (tx, rx) = sync_channel::<UiRequest>(5);
-        Ok(Self {
+        let mut ret = Self {
             styles: styles.clone(),
 
             test: Test::new(styles.clone(), tx.clone()),
@@ -170,95 +289,17 @@ impl Ui<'_> {
 
             uireq_tx: tx,
             uireq_rx: rx,
-        })
+        };
+
+        ret.test
+            .test_from(ret.lang.gen_words(ret.cfg.word_count as usize));
+        ret.test
+            .set_title(format!("{} {}", ret.lang.name, ret.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
+
+        Ok(ret)
     }
 
-    pub fn run(mut self) -> std::io::Result<()> {
-        let mut terminal = ratatui::init();
-
-        // enter raw mode
-        let mut stdout = stdout();
-        execute!(
-            stdout,
-            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
-        )?;
-
-        self.test
-            .test_from(self.lang.gen_words(self.cfg.word_count as usize));
-        self.test
-            .set_title(format!("{} {}", self.lang.name, self.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
-        while self.state != AppState::Stopped {
-            terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
-            self.handle_events()?;
-
-            // non-event-driven state logic
-            let t = Local::now();
-            if t >= self.clear_status_at {
-                self.clear_status();
-            }
-
-            // message handling
-            while let Ok(msg) = self.uireq_rx.try_recv() {
-                match msg {
-                    UiRequest::Exit => self.state = AppState::Stopped,
-                    UiRequest::ChangeScreen(s) => self.change_screen(s),
-                    UiRequest::ClearStatus => self.clear_status(),
-                    UiRequest::GoToLastScreen => self.change_screen(self.last_screen.clone()),
-                    UiRequest::ShowOverlay(o) => self.overlay = o,
-                }
-            }
-        }
-
-        // exit raw mode
-        execute!(stdout, PopKeyboardEnhancementFlags)?;
-        ratatui::restore();
-
-        Ok(())
-    }
-
-    fn handle_events(&mut self) -> std::io::Result<()> {
-        if poll(std::time::Duration::from_secs(1))?
-            && let Event::Key(key) = event::read()?
-        {
-            if key.kind == KeyEventKind::Press {
-                // global keys
-                match key.code {
-                    KeyCode::Char('c') => {
-                        if key.modifiers.contains(KeyModifiers::CONTROL) {
-                            self.state = AppState::Stopped
-                        }
-                    }
-                    KeyCode::F(1) => {
-                        if self.overlay == Overlay::None {
-                            self.change_screen(Screen::AboutScreen)
-                        }
-                    }
-                    KeyCode::Esc => {
-                        self.overlay = if self.overlay == Overlay::None {
-                            Overlay::MenuBar
-                        } else {
-                            Overlay::None
-                        }
-                    }
-                    _ => {}
-                }
-
-                // overlay takes precedent over screen
-                match self.overlay {
-                    Overlay::None => match self.screen {
-                        Screen::AboutScreen => self.about.handle_events(key),
-                        Screen::TestScreen => self.test.handle_events(key),
-                        Screen::ResultsScreen => self.results.handle_events(key),
-                        Screen::StatsScreen => self.stats.handle_events(key),
-                    },
-                    Overlay::MenuBar => self.menubar.handle_events(key),
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
+    pub fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
         let [c1, time_a] =
             Layout::horizontal([Constraint::Min(0), Constraint::Length(8)]).areas(area);
         let mode = format!("{}", self.screen);
@@ -289,62 +330,26 @@ impl Ui<'_> {
             .render(time_a, buf);
     }
 
-    fn render_status(&self, area: Rect, buf: &mut Buffer) {
+    pub fn render_status(&self, area: Rect, buf: &mut Buffer) {
         Line::raw(&self.status)
             .style(self.styles.root)
             .render(area, buf);
     }
 
-    fn set_status_for(&mut self, s: String, t: TimeDelta) {
+    pub fn set_status_for(&mut self, s: String, t: TimeDelta) {
         self.status = s;
         self.clear_status_at = Local::now() + t;
     }
 
-    fn clear_status(&mut self) {
+    pub fn clear_status(&mut self) {
         self.status = " ".to_string(); // such that background color can be preserved
         self.clear_status_at = DateTime::<Local>::MAX_UTC.into()
     }
 
-    fn change_screen(&mut self, s: Screen) {
+    pub fn change_screen(&mut self, s: Screen) {
         if self.screen != s {
             self.last_screen = self.screen.clone();
         }
         self.screen = s;
-    }
-}
-
-impl Widget for &Ui<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        if area.width < 20 || area.height < 10 {
-            Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
-                .wrap(Wrap { trim: true })
-                .render(area, buf);
-            return;
-        }
-
-        use Constraint::{Length, Min, Percentage};
-        let vertical = Layout::vertical([Min(0), Length(1), Length(1)]);
-        let [body_a, mode_a, status_a] = vertical.areas(area);
-
-        match self.screen {
-            Screen::TestScreen => self.test.render(body_a, buf),
-            Screen::ResultsScreen => self.results.render(body_a, buf),
-            Screen::StatsScreen => self.stats.render(body_a, buf),
-            Screen::AboutScreen => self.about.render(body_a, buf),
-        }
-
-        match self.overlay {
-            Overlay::None => {}
-            Overlay::MenuBar => {
-                let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
-                let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
-                let [_, mbv_a, _] = v.areas(body_a);
-                let [_, mb_a, _] = h.areas(mbv_a);
-                self.menubar.render(mb_a, buf);
-            }
-        }
-
-        self.render_modeline(mode_a, buf);
-        self.render_status(status_a, buf);
     }
 }
