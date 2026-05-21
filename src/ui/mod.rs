@@ -15,20 +15,16 @@ use crate::{config::Config, lang::Lang, traits::ArstyperScreen};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
-    crossterm::{
-        event::{
-            self, Event, KeyCode, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
-            PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags, poll,
+    crossterm::event::{
+            self, Event, KeyCode, KeyEventKind, KeyModifiers, poll,
         },
-        execute,
-    },
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, StatefulWidget, StatefulWidgetRef, Widget, Wrap},
 };
 use std::{
-    io::{self, stdout},
+    io::{self},
     rc::Rc,
     sync::mpsc::{Receiver, SyncSender, sync_channel},
     time::Duration,

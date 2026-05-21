@@ -5,30 +5,17 @@ mod traits;
 mod ui;
 
 use config::Config;
-use lang::Lang;
 use traits::ArstyperScreen;
-use ui::{AppState, Overlay, Ui, UiRequest, UiState};
+use ui::{AppState, Ui, UiState};
 
-use chrono::{DateTime, Local, TimeDelta, Timelike};
-use ratatui::{
-    buffer::Buffer,
-    crossterm::{
+use ratatui::crossterm::{
         event::{
-            self, Event, KeyCode, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
-            PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags, poll,
+            KeyboardEnhancementFlags,
+            PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
         },
         execute,
-    },
-    layout::{Constraint, Layout, Rect},
-    style::{Modifier, Style},
-    text::{Line, Span},
-    widgets::{Paragraph, StatefulWidget, StatefulWidgetRef, Widget, Wrap},
-};
-use std::{
-    io::stdout,
-    rc::Rc,
-    sync::mpsc::{Receiver, SyncSender, sync_channel},
-};
+    };
+use std::io::stdout;
 
 macro_rules! err_disp {
     ($name:literal) => {
