@@ -6,15 +6,15 @@ mod ui;
 
 use config::Config;
 use traits::ArstyperScreen;
-use ui::{AppState, Ui, UiState};
+use ui::{
+    AppState,
+    ui::{Ui, UiState},
+};
 
 use ratatui::crossterm::{
-        event::{
-            KeyboardEnhancementFlags,
-            PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-        },
-        execute,
-    };
+    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
+    execute,
+};
 use std::io::stdout;
 
 macro_rules! err_disp {
