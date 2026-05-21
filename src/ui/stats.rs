@@ -1,6 +1,6 @@
 //! Statistics screen
 use crate::{
-    traits::ArstyperScreen,
+    traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Styles, UiRequest},
 };
 
@@ -9,22 +9,36 @@ use ratatui::{
     crossterm::event::KeyEvent,
     layout::Rect,
     style::Stylize,
-    widgets::{Block, Borders, Padding, Paragraph, Widget, Wrap},
+    widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{rc::Rc, sync::mpsc::SyncSender};
+use std::{io, rc::Rc, sync::mpsc::SyncSender};
 
-/// Statistics screen
+/// Results state
+pub struct StatsState {}
+
+impl ArstyperWidgetState for StatsState {
+    fn new() -> io::Result<Self> {
+        Ok(Self {})
+    }
+}
+
+/// Stats screen
 pub struct Stats {
     styles: Rc<Styles>,
     tx: SyncSender<UiRequest>,
 }
 
-impl ArstyperScreen for Stats {
-    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
-        Self { styles: s, tx: tx }
+impl ArstyperWidget for Stats {
+    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> io::Result<Self> {
+        Ok(Self { styles: s, tx: tx })
     }
 
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn handle_events(&mut self, _key: KeyEvent, _state: &mut Self::State) {}
+}
+
+impl StatefulWidgetRef for Stats {
+    type State = StatsState;
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
         Paragraph::new("stats go here")
             .style(self.styles.root)
             .block(
@@ -37,6 +51,4 @@ impl ArstyperScreen for Stats {
             .wrap(Wrap { trim: true })
             .render(area, buf);
     }
-
-    fn handle_events(&mut self, _key: KeyEvent) {}
 }

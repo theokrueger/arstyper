@@ -5,7 +5,7 @@ use crate::{
         about::{About, AboutState},
         menubar::MenuBar,
         results::{Results, ResultsState},
-        stats::Stats,
+        stats::{Stats, StatsState},
         test::Test,
     },
 };
@@ -97,7 +97,9 @@ impl Ui {
                         Screen::ResultsScreen => {
                             state.results.handle_events(key, &mut state.results_state)
                         }
-                        Screen::StatsScreen => state.stats.handle_events(key),
+                        Screen::StatsScreen => {
+                            state.stats.handle_events(key, &mut state.stats_state)
+                        }
                     },
                     Overlay::MenuBar => state.menubar.handle_events(key),
                 }
@@ -128,7 +130,7 @@ impl StatefulWidgetRef for Ui {
                     .results
                     .render_ref(body_a, buf, &mut state.results_state)
             }
-            Screen::StatsScreen => state.stats.render(body_a, buf),
+            Screen::StatsScreen => state.stats.render_ref(body_a, buf, &mut state.stats_state),
             Screen::AboutScreen => state.about.render_ref(body_a, buf, &mut state.about_state),
         }
 
@@ -167,6 +169,7 @@ pub struct UiState<'a> {
 
     pub test: Test<'a>,
     pub stats: Stats,
+    pub stats_state: StatsState,
 
     pub results: Results,
     pub results_state: ResultsState,
@@ -215,7 +218,9 @@ impl UiState<'_> {
             styles: styles.clone(),
 
             test: Test::new(styles.clone(), tx.clone()),
-            stats: Stats::new(styles.clone(), tx.clone()),
+
+            stats: Stats::new(styles.clone(), tx.clone())?,
+            stats_state: StatsState::new()?,
 
             results: Results::new(styles.clone(), tx.clone())?,
             results_state: ResultsState::new()?,

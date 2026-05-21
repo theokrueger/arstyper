@@ -33,12 +33,12 @@ impl ArstyperWidget for Results {
         Ok(Self { styles: s, tx: tx })
     }
 
-    fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State) {}
+    fn handle_events(&mut self, _key: KeyEvent, _state: &mut Self::State) {}
 }
 
 impl StatefulWidgetRef for Results {
     type State = ResultsState;
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
         Paragraph::new("results go here")
             .style(self.styles.root)
             .block(
