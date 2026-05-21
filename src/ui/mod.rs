@@ -8,6 +8,8 @@ mod test;
 use test::Test;
 mod stats;
 use stats::Stats;
+mod menubar;
+use menubar::MenuBar;
 
 use crate::{config::Config, lang::Lang, traits::ArstyperScreen};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
@@ -23,7 +25,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::Widget,
+    widgets::{Paragraph, Widget, Wrap},
 };
 use std::{
     io::stdout,
@@ -40,11 +42,14 @@ pub struct Ui<'a> {
     state: AppState,
     screen: Screen,
     last_screen: Screen,
+    overlay: Overlay,
 
     test: Test<'a>,
     results: Results,
     stats: Stats,
     about: About,
+
+    menubar: MenuBar,
 
     status: String,
     /// When the status message is to be cleared
@@ -79,14 +84,27 @@ pub enum Screen {
     AboutScreen,
 }
 
+#[derive(Default, PartialEq, Clone)]
+/// Currenly enabled overlay
+pub enum Overlay {
+    #[default]
+    None,
+    MenuBar,
+}
+
+#[derive(Clone)]
 /// Request sent by screens to here
 pub enum UiRequest {
+    /// Exit the program
+    Exit,
     /// Change the screen (duh)
     ChangeScreen(Screen),
     /// Go to the last screen
     GoToLastScreen,
     /// Clear status
     ClearStatus,
+    /// Set the overlay
+    ShowOverlay(Overlay),
     //// Set the statusbar to this message. Will overwrite any existing message
     //DisplayStatus(String, DateTime<Local>),
     //// Discard current test and create a new one
@@ -95,9 +113,11 @@ pub enum UiRequest {
 
 pub struct Styles {
     pub root: Style,
+    pub root_inv: Style,
     pub modeline: Style,
     pub modeline_inv: Style,
     pub accent: Style,
+    pub accent_inv: Style,
     pub untyped: Style,
     pub typed: Style,
     pub incorrect: Style,
@@ -109,22 +129,21 @@ impl Ui<'_> {
         let lang = Lang::get_by_name(&cfg.lang)?;
 
         let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
-        let mode_sty = root_sty.bg(cfg.theme.accent);
-        let mode_inv_sty = mode_sty.add_modifier(Modifier::REVERSED);
-        let accent_sty = root_sty.fg(cfg.theme.accent);
-        let untyped_sty = root_sty.fg(cfg.theme.untyped_text);
-        let typed_sty = root_sty.fg(cfg.theme.typed_text);
-        let incorrect_sty = root_sty.fg(cfg.theme.incorrect_text);
-        let cursor_sty = root_sty.bg(cfg.theme.accent);
         let styles = Rc::new(Styles {
             root: root_sty,
-            modeline: mode_sty,
-            modeline_inv: mode_inv_sty,
-            accent: accent_sty,
-            untyped: untyped_sty,
-            typed: typed_sty,
-            incorrect: incorrect_sty,
-            cursor: cursor_sty,
+            root_inv: root_sty.add_modifier(Modifier::REVERSED),
+            modeline: root_sty.bg(cfg.theme.accent),
+            modeline_inv: root_sty
+                .bg(cfg.theme.accent)
+                .add_modifier(Modifier::REVERSED),
+            accent: root_sty.fg(cfg.theme.accent),
+            accent_inv: root_sty
+                .fg(cfg.theme.accent)
+                .add_modifier(Modifier::REVERSED),
+            untyped: root_sty.fg(cfg.theme.untyped_text),
+            typed: root_sty.fg(cfg.theme.typed_text),
+            incorrect: root_sty.fg(cfg.theme.incorrect_text),
+            cursor: root_sty.bg(cfg.theme.accent),
         });
 
         let (tx, rx) = sync_channel::<UiRequest>(5);
@@ -136,7 +155,10 @@ impl Ui<'_> {
             about: About::new(styles.clone(), tx.clone()),
             stats: Stats::new(styles.clone(), tx.clone()),
 
+            menubar: MenuBar::new(styles.clone(), tx.clone()),
+
             state: AppState::default(),
+            overlay: Overlay::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
 
@@ -178,9 +200,11 @@ impl Ui<'_> {
             // message handling
             while let Ok(msg) = self.uireq_rx.try_recv() {
                 match msg {
+                    UiRequest::Exit => self.state = AppState::Stopped,
                     UiRequest::ChangeScreen(s) => self.change_screen(s),
                     UiRequest::ClearStatus => self.clear_status(),
                     UiRequest::GoToLastScreen => self.change_screen(self.last_screen.clone()),
+                    UiRequest::ShowOverlay(o) => self.overlay = o,
                 }
             }
         }
@@ -204,16 +228,30 @@ impl Ui<'_> {
                             self.state = AppState::Stopped
                         }
                     }
-                    KeyCode::F(1) => self.change_screen(Screen::AboutScreen),
+                    KeyCode::F(1) => {
+                        if self.overlay == Overlay::None {
+                            self.change_screen(Screen::AboutScreen)
+                        }
+                    }
+                    KeyCode::Esc => {
+                        self.overlay = if self.overlay == Overlay::None {
+                            Overlay::MenuBar
+                        } else {
+                            Overlay::None
+                        }
+                    }
                     _ => {}
                 }
 
-                // per-screen keys
-                match self.screen {
-                    Screen::AboutScreen => self.about.handle_events(key),
-                    Screen::TestScreen => self.test.handle_events(key),
-                    Screen::ResultsScreen => self.results.handle_events(key),
-                    Screen::StatsScreen => self.stats.handle_events(key),
+                // overlay takes precedent over screen
+                match self.overlay {
+                    Overlay::None => match self.screen {
+                        Screen::AboutScreen => self.about.handle_events(key),
+                        Screen::TestScreen => self.test.handle_events(key),
+                        Screen::ResultsScreen => self.results.handle_events(key),
+                        Screen::StatsScreen => self.stats.handle_events(key),
+                    },
+                    Overlay::MenuBar => self.menubar.handle_events(key),
                 }
             }
         }
@@ -277,7 +315,14 @@ impl Ui<'_> {
 
 impl Widget for &Ui<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        use Constraint::{Length, Min};
+        if area.width < 20 || area.height < 10 {
+            Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
+                .wrap(Wrap { trim: true })
+                .render(area, buf);
+            return;
+        }
+
+        use Constraint::{Length, Min, Percentage};
         let vertical = Layout::vertical([Min(0), Length(1), Length(1)]);
         let [body_a, mode_a, status_a] = vertical.areas(area);
 
@@ -286,6 +331,17 @@ impl Widget for &Ui<'_> {
             Screen::ResultsScreen => self.results.render(body_a, buf),
             Screen::StatsScreen => self.stats.render(body_a, buf),
             Screen::AboutScreen => self.about.render(body_a, buf),
+        }
+
+        match self.overlay {
+            Overlay::None => {}
+            Overlay::MenuBar => {
+                let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
+                let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
+                let [_, mbv_a, _] = v.areas(body_a);
+                let [_, mb_a, _] = h.areas(mbv_a);
+                self.menubar.render(mb_a, buf);
+            }
         }
 
         self.render_modeline(mode_a, buf);

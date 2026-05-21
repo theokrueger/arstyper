@@ -31,7 +31,7 @@ impl ArstyperScreen for Results {
                 Block::new()
                     .borders(Borders::TOP)
                     .style(self.styles.accent)
-                    .title("Results".bold())
+                    .title("Results and Analysis".bold())
                     .padding(Padding::horizontal(1)),
             )
             .wrap(Wrap { trim: true })

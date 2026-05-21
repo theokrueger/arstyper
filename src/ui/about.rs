@@ -74,7 +74,7 @@ impl ArstyperScreen for About {
                 Block::new()
                     .borders(Borders::TOP)
                     .style(self.styles.accent)
-                    .title(format!("{}", Screen::AboutScreen).bold())
+                    .title("About arstyper".bold())
                     .padding(Padding::horizontal(1)),
             )
             .wrap(Wrap { trim: false })
@@ -91,7 +91,7 @@ impl ArstyperScreen for About {
 
         // footer
         Line::from("Use ⭡/⭣ to scroll or 'q' to go back.")
-            .style(self.styles.root)
+            .style(self.styles.accent)
             .centered()
             .render(footer_a, buf);
     }
