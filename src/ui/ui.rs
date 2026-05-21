@@ -1,10 +1,10 @@
 use crate::{
-    traits::ArstyperWidget,
+    traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{
         AppState, Overlay, Screen, Styles, UiRequest,
         about::{About, AboutState},
         menubar::MenuBar,
-        results::Results,
+        results::{Results, ResultsState},
         stats::Stats,
         test::Test,
     },
@@ -94,7 +94,9 @@ impl Ui {
                             state.about.handle_events(key, &mut state.about_state)
                         }
                         Screen::TestScreen => state.test.handle_events(key),
-                        Screen::ResultsScreen => state.results.handle_events(key),
+                        Screen::ResultsScreen => {
+                            state.results.handle_events(key, &mut state.results_state)
+                        }
                         Screen::StatsScreen => state.stats.handle_events(key),
                     },
                     Overlay::MenuBar => state.menubar.handle_events(key),
@@ -121,7 +123,11 @@ impl StatefulWidgetRef for Ui {
 
         match state.screen {
             Screen::TestScreen => state.test.render(body_a, buf),
-            Screen::ResultsScreen => state.results.render(body_a, buf),
+            Screen::ResultsScreen => {
+                state
+                    .results
+                    .render_ref(body_a, buf, &mut state.results_state)
+            }
             Screen::StatsScreen => state.stats.render(body_a, buf),
             Screen::AboutScreen => state.about.render_ref(body_a, buf, &mut state.about_state),
         }
@@ -160,8 +166,10 @@ pub struct UiState<'a> {
     pub overlay: Overlay,
 
     pub test: Test<'a>,
-    pub results: Results,
     pub stats: Stats,
+
+    pub results: Results,
+    pub results_state: ResultsState,
 
     pub about: About,
     pub about_state: AboutState,
@@ -207,8 +215,10 @@ impl UiState<'_> {
             styles: styles.clone(),
 
             test: Test::new(styles.clone(), tx.clone()),
-            results: Results::new(styles.clone(), tx.clone()),
             stats: Stats::new(styles.clone(), tx.clone()),
+
+            results: Results::new(styles.clone(), tx.clone())?,
+            results_state: ResultsState::new()?,
 
             about: About::new(styles.clone(), tx.clone())?,
             about_state: AboutState::new()?,

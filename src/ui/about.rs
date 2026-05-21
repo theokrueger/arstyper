@@ -40,11 +40,13 @@ pub struct AboutState {
     max: usize,
 }
 
-impl AboutState {
-    pub fn new() -> io::Result<Self> {
+impl ArstyperWidgetState for AboutState {
+    fn new() -> io::Result<Self> {
         Ok(Self { scroll: 0, max: 0 })
     }
+}
 
+impl AboutState {
     fn next(&mut self, n: usize) {
         self.scroll = min(self.scroll + n, self.max);
     }
