@@ -1,6 +1,8 @@
 use crate::ui::{Styles, UiRequest};
-use ratatui::{buffer::Buffer, crossterm::event::KeyEvent, layout::Rect};
-use std::{rc::Rc, sync::mpsc::SyncSender};
+use ratatui::{
+    buffer::Buffer, crossterm::event::KeyEvent, layout::Rect, widgets::StatefulWidgetRef,
+};
+use std::{io, rc::Rc, sync::mpsc::SyncSender};
 
 /// Renderable body screen for Arstyper
 pub trait ArstyperScreen {
@@ -12,4 +14,17 @@ pub trait ArstyperScreen {
 
     /// Handle crossterm events for this screen
     fn handle_events(&mut self, key: KeyEvent);
+}
+
+/// Renderable Stateful Widget for Arstyper
+pub trait ArstyperWidget: StatefulWidgetRef + Sized {
+    /// Handle crossterm events for this widget
+    fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State);
+
+    /// Create a new, empty version of this widget
+    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> io::Result<Self>;
+}
+
+pub trait ArstyperWidgetState: Sized {
+    fn new() -> io::Result<Self>;
 }

@@ -1,6 +1,6 @@
 //! "About this program" screen
 use crate::{
-    traits::ArstyperScreen,
+    traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Styles, UiRequest},
 };
 
@@ -16,44 +16,53 @@ use ratatui::{
     text::Line,
     widgets::{
         Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
-        Widget, Wrap,
+        StatefulWidgetRef, Widget, Wrap,
     },
 };
 use std::{
     cmp::{max, min},
+    io,
     rc::Rc,
     sync::mpsc::SyncSender,
 };
 
 const ABOUT_TEXT: &str = include_str!("./ABOUT.txt"); // easier to write there than here
 
-/// About screen
+/// About widget
 pub struct About {
-    scroll: u16,
     styles: Rc<Styles>,
     tx: SyncSender<UiRequest>,
 }
 
-impl About {
-    fn scrolldown(&mut self, n: u16) {
-        self.scroll = min(self.scroll + n, (ABOUT_TEXT.len() / 30) as u16); // TODO bad length estimate lmao
+/// About widget state
+pub struct AboutState {
+    scroll: usize,
+    max: usize,
+}
+
+impl AboutState {
+    pub fn new() -> io::Result<Self> {
+        Ok(Self { scroll: 0, max: 0 })
     }
 
-    fn scrollup(&mut self, n: u16) {
+    fn next(&mut self, n: usize) {
+        self.scroll = min(self.scroll + n, self.max);
+    }
+
+    fn prev(&mut self, n: usize) {
         self.scroll = max(self.scroll, n) - n;
+    }
+
+    fn set_max(&mut self, n: usize) {
+        self.max = n;
+        self.scroll = min(self.scroll, n);
     }
 }
 
-impl ArstyperScreen for About {
-    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
-        Self {
-            scroll: 0,
-            styles: s,
-            tx: tx,
-        }
-    }
+impl StatefulWidgetRef for About {
+    type State = AboutState;
 
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let [body_a, scrollbar_a] = Layout::horizontal([Min(0), Length(1)]).areas(area);
         let [text_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(body_a);
 
@@ -67,24 +76,24 @@ impl ArstyperScreen for About {
             }
         }
         // body text
-        let p = Paragraph::new(text)
+        let b = Block::new()
+            .borders(Borders::TOP)
+            .style(self.styles.accent)
+            .title("About arstyper".bold())
+            .padding(Padding::horizontal(1));
+        let mut p = Paragraph::new(text)
             .style(self.styles.root)
-            .block(
-                Block::new()
-                    .borders(Borders::TOP)
-                    .style(self.styles.accent)
-                    .title("About arstyper".bold())
-                    .padding(Padding::horizontal(1)),
-            )
-            .wrap(Wrap { trim: false })
-            .scroll((self.scroll, 0));
+            .wrap(Wrap { trim: false });
 
         // scrollbar
-        let mut state =
-            ScrollbarState::new(p.line_count(text_a.width)).position(self.scroll as usize);
+        let h = b.inner(area).height as usize;
+        state.set_max(max(p.line_count(text_a.width) + 2, h) - h); // +2 for padding
+        p = p.scroll((state.scroll as u16, 0)).block(b);
+
+        let mut sbs = ScrollbarState::new(state.max).position(state.scroll);
         Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .style(self.styles.root)
-            .render(scrollbar_a, buf, &mut state);
+            .render(scrollbar_a, buf, &mut sbs);
 
         p.render(text_a, buf);
 
@@ -94,16 +103,22 @@ impl ArstyperScreen for About {
             .centered()
             .render(footer_a, buf);
     }
+}
 
-    fn handle_events(&mut self, key: KeyEvent) {
+impl ArstyperWidget for About {
+    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> io::Result<Self> {
+        Ok(Self { styles: s, tx: tx })
+    }
+
+    fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State) {
         match key.code {
             KeyCode::Char('q') => {
                 self.tx.send(UiRequest::GoToLastScreen).unwrap();
             }
-            KeyCode::Up => self.scrollup(1),
-            KeyCode::Down => self.scrolldown(1),
-            KeyCode::PageUp => self.scrollup(15),
-            KeyCode::PageDown => self.scrolldown(15),
+            KeyCode::Up => state.prev(1),
+            KeyCode::Down => state.next(1),
+            KeyCode::PageUp => state.prev(15),
+            KeyCode::PageDown => state.next(15),
             _ => {}
         }
     }

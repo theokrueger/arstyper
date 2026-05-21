@@ -1,6 +1,13 @@
-use crate::ui::{
-    AppState, Overlay, Screen, Styles, UiRequest, about::About, menubar::MenuBar, results::Results,
-    stats::Stats, test::Test,
+use crate::{
+    traits::ArstyperWidget,
+    ui::{
+        AppState, Overlay, Screen, Styles, UiRequest,
+        about::{About, AboutState},
+        menubar::MenuBar,
+        results::Results,
+        stats::Stats,
+        test::Test,
+    },
 };
 
 use crate::{config::Config, lang::Lang, traits::ArstyperScreen};
@@ -83,7 +90,9 @@ impl Ui {
                 // overlay takes precedent over screen
                 match state.overlay {
                     Overlay::None => match state.screen {
-                        Screen::AboutScreen => state.about.handle_events(key),
+                        Screen::AboutScreen => {
+                            state.about.handle_events(key, &mut state.about_state)
+                        }
                         Screen::TestScreen => state.test.handle_events(key),
                         Screen::ResultsScreen => state.results.handle_events(key),
                         Screen::StatsScreen => state.stats.handle_events(key),
@@ -114,7 +123,7 @@ impl StatefulWidgetRef for Ui {
             Screen::TestScreen => state.test.render(body_a, buf),
             Screen::ResultsScreen => state.results.render(body_a, buf),
             Screen::StatsScreen => state.stats.render(body_a, buf),
-            Screen::AboutScreen => state.about.render(body_a, buf),
+            Screen::AboutScreen => state.about.render_ref(body_a, buf, &mut state.about_state),
         }
 
         match state.overlay {
@@ -153,7 +162,9 @@ pub struct UiState<'a> {
     pub test: Test<'a>,
     pub results: Results,
     pub stats: Stats,
+
     pub about: About,
+    pub about_state: AboutState,
 
     pub menubar: MenuBar,
 
@@ -197,8 +208,10 @@ impl UiState<'_> {
 
             test: Test::new(styles.clone(), tx.clone()),
             results: Results::new(styles.clone(), tx.clone()),
-            about: About::new(styles.clone(), tx.clone()),
             stats: Stats::new(styles.clone(), tx.clone()),
+
+            about: About::new(styles.clone(), tx.clone())?,
+            about_state: AboutState::new()?,
 
             menubar: MenuBar::new(styles.clone(), tx.clone()),
 
