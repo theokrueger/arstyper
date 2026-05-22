@@ -3,18 +3,23 @@ arstyper is a minimalistic terminal-based typing test.
 Inspired by Monkeytype and ttyper, arstyper offers a full-featured and customizable offline typing experience, complete with in-depth stat tracking beyond any reasonable needs.
 
 * Controls
-Under any screen:
+Globally:
   - Press <F1> to see this page.
-  - Press <Esc> or <~> to open/close the menu bar.
+  - Press <Esc> to open/close the menu.
+  - Press <Ctrl-C> to exit the program.
 
 Under the typing screen:
   - Type using alphanumeric+symbol keys.
   - Press <Tab> to end the test.
-  - Press <Ctrl-C> to exit the program.
 
 Under other screens:
   - Press <q> to go back to the previous screen.
   - See additional controls listed at the bottom of the screen.
+
+In the menu:
+  - Use arrow keys to select an entry.
+  - Type to search.
+  - Press <Enter> to select highlighted entry.
 
 * Statistics
 TBD

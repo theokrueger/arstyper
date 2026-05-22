@@ -1,10 +1,10 @@
 //! Root UI
 mod about;
 pub mod color_preview;
-mod results;
-mod test;
-mod stats;
 mod menubar;
+mod results;
+mod stats;
+mod test;
 pub mod ui;
 
 use ratatui::style::Style;
@@ -52,10 +52,10 @@ pub enum UiRequest {
     ClearStatus,
     /// Set the overlay
     ShowOverlay(Overlay),
+    /// Discard current test and create a new one using current settings
+    NewTest,
     //// Set the statusbar to this message. Will overwrite any existing message
     //DisplayStatus(String, DateTime<Local>),
-    //// Discard current test and create a new one
-    //NewTest,
 }
 
 /// Common style shortcuts

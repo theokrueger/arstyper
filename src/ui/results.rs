@@ -1,12 +1,12 @@
 //! Results screen
 use crate::{
     traits::{ArstyperWidget, ArstyperWidgetState},
-    ui::{Styles, UiRequest},
+    ui::{Screen, Styles, UiRequest},
 };
 
 use ratatui::{
     buffer::Buffer,
-    crossterm::event::KeyEvent,
+    crossterm::event::{KeyCode, KeyEvent},
     layout::Rect,
     style::Stylize,
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
@@ -33,7 +33,17 @@ impl ArstyperWidget for Results {
         Ok(Self { styles: s, tx: tx })
     }
 
-    fn handle_events(&mut self, _key: KeyEvent, _state: &mut Self::State) {}
+    fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State) {
+        match key.code {
+            KeyCode::Enter => {
+                self.tx.send(UiRequest::NewTest).unwrap();
+                self.tx
+                    .send(UiRequest::ChangeScreen(Screen::TestScreen))
+                    .unwrap();
+            }
+            _ => {}
+        }
+    }
 }
 
 impl StatefulWidgetRef for Results {

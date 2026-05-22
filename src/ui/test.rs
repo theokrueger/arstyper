@@ -10,9 +10,9 @@ use ratatui::{
     layout::Rect,
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, WidgetRef, Wrap},
+    widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{cmp::min, io, rc::Rc, sync::mpsc::SyncSender, time::Instant};
+use std::{io, rc::Rc, sync::mpsc::SyncSender, time::Instant};
 
 /// A single keypress
 struct Keypress {
@@ -46,7 +46,7 @@ impl TestWord {
         incorrect: Style,
         untyped: Style,
         cursor: Style,
-    ) -> Vec<Span> {
+    ) -> Vec<Span<'_>> {
         let mut state = true; // true for correct
         let mut typed = String::new();
         let mut spans = Vec::<Span>::new();
@@ -190,11 +190,11 @@ impl ArstyperWidget for Test {
                 if word.presses.len() == 0 {
                     if state.word_i != 0 {
                         state.word_i -= 1;
-                        state.words[state.word_i].presses.pop();
+                        word = &mut state.words[state.word_i];
                     }
                 }
                 // (ctrl|alt) + backspace -> delete entire word
-                else if key
+                if key
                     .modifiers
                     .iter()
                     .any(|m| m == KeyModifiers::CONTROL || m == KeyModifiers::ALT)
@@ -262,5 +262,6 @@ impl TestState {
         self.words = words
             .map(|w| w.to_lowercase().into())
             .collect::<Vec<TestWord>>();
+        self.word_i = 0;
     }
 }

@@ -14,7 +14,7 @@ use crate::{config::Config, lang::Lang, traits::ArstyperScreen};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
-    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, poll},
+    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
@@ -24,7 +24,6 @@ use std::{
     io::{self},
     rc::Rc,
     sync::mpsc::{Receiver, SyncSender, sync_channel},
-    time::Duration,
 };
 
 /// Main UI widget
@@ -53,6 +52,7 @@ impl Ui {
                 UiRequest::ClearStatus => state.clear_status(),
                 UiRequest::GoToLastScreen => state.change_screen(state.last_screen.clone()),
                 UiRequest::ShowOverlay(o) => state.overlay = o,
+                UiRequest::NewTest => state.new_test(),
             }
         }
 
@@ -62,7 +62,6 @@ impl Ui {
     /// handle keyboard events
     pub fn handle_events(&self, state: &mut UiState) -> io::Result<()> {
         // if poll(Duration::from_secs(1))?
-        //     && let Event::Key(key) = event::read()?
         if let Event::Key(key) = event::read()? {
             let mut pass_from_global = true;
             if key.kind == KeyEventKind::Press {
@@ -80,7 +79,7 @@ impl Ui {
                             pass_from_global = false;
                         }
                     }
-                    KeyCode::Esc | KeyCode::Char('`') | KeyCode::Char('~') => {
+                    KeyCode::Esc => {
                         state.overlay = if state.overlay == Overlay::None {
                             Overlay::MenuBar
                         } else {
@@ -255,12 +254,16 @@ impl UiState {
             uireq_rx: rx,
         };
 
-        ret.test_state
-            .test_from(ret.lang.gen_words(ret.cfg.word_count as usize));
-        ret.test_state
-            .set_title(format!("{} {}", ret.lang.name, ret.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
+        ret.new_test();
 
         Ok(ret)
+    }
+
+    fn new_test(&mut self) {
+        self.test_state
+            .test_from(self.lang.gen_words(self.cfg.word_count as usize));
+        self.test_state
+            .set_title(format!("{} {}", self.lang.name, self.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
     }
 
     pub fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
