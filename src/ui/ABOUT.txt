@@ -5,7 +5,7 @@ Inspired by Monkeytype and ttyper, arstyper offers a full-featured and customiza
 * Controls
 Under any screen:
   - Press <F1> to see this page.
-  - Press <Esc> to open/close the menu bar.
+  - Press <Esc> or <~> to open/close the menu bar.
 
 Under the typing screen:
   - Type using alphanumeric+symbol keys.

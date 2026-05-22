@@ -6,7 +6,7 @@ use crate::{
         menubar::MenuBar,
         results::{Results, ResultsState},
         stats::{Stats, StatsState},
-        test::Test,
+        test::{Test, TestState},
     },
 };
 
@@ -36,7 +36,7 @@ impl Ui {
     }
 
     /// 'tick' to update state/logic of ui
-    pub fn tick(&self, state: &mut UiState<'static>) -> io::Result<()> {
+    pub fn tick(&self, state: &mut UiState) -> io::Result<()> {
         self.handle_events(state)?;
 
         // non-event-driven state logic
@@ -60,40 +60,47 @@ impl Ui {
     }
 
     /// handle keyboard events
-    pub fn handle_events(&self, state: &mut UiState<'static>) -> io::Result<()> {
-        if poll(Duration::from_secs(1))?
-            && let Event::Key(key) = event::read()?
-        {
+    pub fn handle_events(&self, state: &mut UiState) -> io::Result<()> {
+        // if poll(Duration::from_secs(1))?
+        //     && let Event::Key(key) = event::read()?
+        if let Event::Key(key) = event::read()? {
+            let mut pass_from_global = true;
             if key.kind == KeyEventKind::Press {
                 // global keys
                 match key.code {
                     KeyCode::Char('c') => {
                         if key.modifiers.contains(KeyModifiers::CONTROL) {
-                            state.state = AppState::Stopped
+                            state.state = AppState::Stopped;
+                            pass_from_global = false;
                         }
                     }
                     KeyCode::F(1) => {
                         if state.overlay == Overlay::None {
-                            state.change_screen(Screen::AboutScreen)
+                            state.change_screen(Screen::AboutScreen);
+                            pass_from_global = false;
                         }
                     }
-                    KeyCode::Esc => {
+                    KeyCode::Esc | KeyCode::Char('`') | KeyCode::Char('~') => {
                         state.overlay = if state.overlay == Overlay::None {
                             Overlay::MenuBar
                         } else {
                             Overlay::None
-                        }
+                        };
+                        pass_from_global = false;
                     }
                     _ => {}
                 }
 
+                if !pass_from_global {
+                    return Ok(());
+                }
                 // overlay takes precedent over screen
                 match state.overlay {
                     Overlay::None => match state.screen {
                         Screen::AboutScreen => {
                             state.about.handle_events(key, &mut state.about_state)
                         }
-                        Screen::TestScreen => state.test.handle_events(key),
+                        Screen::TestScreen => state.test.handle_events(key, &mut state.test_state),
                         Screen::ResultsScreen => {
                             state.results.handle_events(key, &mut state.results_state)
                         }
@@ -110,7 +117,7 @@ impl Ui {
 }
 
 impl StatefulWidgetRef for Ui {
-    type State = UiState<'static>;
+    type State = UiState;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if area.width < 20 || area.height < 10 {
             Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
@@ -124,7 +131,7 @@ impl StatefulWidgetRef for Ui {
         let [body_a, mode_a, status_a] = vertical.areas(area);
 
         match state.screen {
-            Screen::TestScreen => state.test.render(body_a, buf),
+            Screen::TestScreen => state.test.render_ref(body_a, buf, &mut state.test_state),
             Screen::ResultsScreen => {
                 state
                     .results
@@ -151,14 +158,14 @@ impl StatefulWidgetRef for Ui {
 }
 
 impl StatefulWidget for &Ui {
-    type State = UiState<'static>;
+    type State = UiState;
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.render_ref(area, buf, state);
     }
 }
 
 /// State of main UI and all subwidgets
-pub struct UiState<'a> {
+pub struct UiState {
     pub cfg: Config,
     pub lang: Lang,
 
@@ -167,7 +174,9 @@ pub struct UiState<'a> {
     pub last_screen: Screen,
     pub overlay: Overlay,
 
-    pub test: Test<'a>,
+    pub test: Test,
+    pub test_state: TestState,
+
     pub stats: Stats,
     pub stats_state: StatsState,
 
@@ -191,7 +200,7 @@ pub struct UiState<'a> {
     pub uireq_rx: Receiver<UiRequest>,
 }
 
-impl UiState<'_> {
+impl UiState {
     pub fn new(cfg: Config) -> Result<Self, std::io::Error> {
         let lang = Lang::get_by_name(&cfg.lang)?;
 
@@ -217,7 +226,8 @@ impl UiState<'_> {
         let mut ret = Self {
             styles: styles.clone(),
 
-            test: Test::new(styles.clone(), tx.clone()),
+            test: Test::new(styles.clone(), tx.clone())?,
+            test_state: TestState::new()?,
 
             stats: Stats::new(styles.clone(), tx.clone())?,
             stats_state: StatsState::new()?,
@@ -245,9 +255,9 @@ impl UiState<'_> {
             uireq_rx: rx,
         };
 
-        ret.test
+        ret.test_state
             .test_from(ret.lang.gen_words(ret.cfg.word_count as usize));
-        ret.test
+        ret.test_state
             .set_title(format!("{} {}", ret.lang.name, ret.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
 
         Ok(ret)
@@ -255,7 +265,7 @@ impl UiState<'_> {
 
     pub fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
         let [c1, time_a] =
-            Layout::horizontal([Constraint::Min(0), Constraint::Length(8)]).areas(area);
+            Layout::horizontal([Constraint::Min(0), Constraint::Length(5)]).areas(area);
         let mode = format!("{}", self.screen);
         Line::from(vec![
             Span::raw("arstyper "),
@@ -267,14 +277,13 @@ impl UiState<'_> {
         let time = if self.cfg.ui.show_clock {
             let t = Local::now();
             format!(
-                "{:02}:{:02}:{:02}",
+                "{:02}:{:02}",
                 if self.cfg.ui.hour_24 {
                     t.hour()
                 } else {
                     t.hour12().1
                 },
-                t.minute(),
-                t.second()
+                t.minute()
             )
         } else {
             " ".to_string()
