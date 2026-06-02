@@ -1,6 +1,5 @@
 //! "About this program" screen
 use crate::{
-    consts::{self, Styles},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::UiRequest,
@@ -24,7 +23,6 @@ use ratatui::{
 use std::{
     cmp::{max, min},
     io,
-    rc::Rc,
     sync::mpsc::SyncSender,
 };
 

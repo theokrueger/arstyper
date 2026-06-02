@@ -35,29 +35,25 @@ macro_rules! err_disp {
 
 fn main() -> std::io::Result<()> {
     // global 'consts' init
+    let cfg = Config::get().unwrap_or_else(err_disp!("Config"));
+    let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
+    let accent_sty = root_sty.fg(cfg.theme.accent);
+    let modeline_sty = root_sty.bg(cfg.theme.accent);
+    let styles = Styles {
+        root: root_sty,
+        root_inv: root_sty.add_modifier(Modifier::REVERSED),
+        modeline_inv: modeline_sty.add_modifier(Modifier::REVERSED),
+        modeline: modeline_sty,
+        accent_inv: accent_sty.add_modifier(Modifier::REVERSED),
+        accent: accent_sty,
+        untyped: root_sty.fg(cfg.theme.untyped_text),
+        typed: root_sty.fg(cfg.theme.typed_text),
+        incorrect: root_sty.fg(cfg.theme.incorrect_text),
+        cursor: root_sty.bg(cfg.theme.accent),
+    };
     unsafe {
-        consts::CONFIG
-            .set(Config::get().unwrap_or_else(err_disp!("Config")))
-            .unwrap_unchecked();
-        let root_sty = Style::new().fg(config!(theme.fg)).bg(config!(theme.bg));
-        consts::STYLES
-            .set(Styles {
-                root: root_sty,
-                root_inv: root_sty.add_modifier(Modifier::REVERSED),
-                modeline: root_sty.bg(config!(theme.accent)),
-                modeline_inv: root_sty
-                    .bg(config!(theme.accent))
-                    .add_modifier(Modifier::REVERSED),
-                accent: root_sty.fg(config!(theme.accent)),
-                accent_inv: root_sty
-                    .fg(config!(theme.accent))
-                    .add_modifier(Modifier::REVERSED),
-                untyped: root_sty.fg(config!(theme.untyped_text)),
-                typed: root_sty.fg(config!(theme.typed_text)),
-                incorrect: root_sty.fg(config!(theme.incorrect_text)),
-                cursor: root_sty.bg(config!(theme.accent)),
-            })
-            .unwrap_unchecked();
+        consts::CONFIG.set(cfg).unwrap_unchecked();
+        consts::STYLES.set(styles).unwrap_unchecked();
     }
 
     // init ui

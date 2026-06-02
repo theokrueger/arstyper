@@ -1,6 +1,5 @@
 //! Menu bar screen
 use crate::{
-    consts::{self, Styles},
     sty,
     traits::ArstyperScreen,
     ui::{Overlay, Screen, UiRequest},
@@ -16,7 +15,6 @@ use ratatui::{
 };
 use std::{
     cmp::{max, min},
-    rc::Rc,
     sync::mpsc::SyncSender,
 };
 

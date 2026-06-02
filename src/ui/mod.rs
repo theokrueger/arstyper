@@ -7,7 +7,6 @@ mod stats;
 mod test;
 pub mod ui;
 
-use ratatui::style::Style;
 use strum::{Display, EnumIter, FromRepr};
 
 #[derive(Default, PartialEq)]

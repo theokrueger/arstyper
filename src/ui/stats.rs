@@ -1,6 +1,5 @@
 //! Statistics screen
 use crate::{
-    consts::{self, Styles},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::UiRequest,
@@ -13,7 +12,7 @@ use ratatui::{
     style::Stylize,
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{io, rc::Rc, sync::mpsc::SyncSender};
+use std::{io, sync::mpsc::SyncSender};
 
 /// Results state
 pub struct StatsState {}

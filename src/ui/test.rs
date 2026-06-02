@@ -1,6 +1,5 @@
 //! Typing test struct
 use crate::{
-    consts::{self, Styles},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
@@ -10,11 +9,11 @@ use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::Rect,
-    style::{Style, Stylize},
+    style::Stylize,
     text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{io, rc::Rc, sync::mpsc::SyncSender, time::Instant};
+use std::{io, sync::mpsc::SyncSender, time::Instant};
 
 /// A single keypress
 struct Keypress {
@@ -239,7 +238,7 @@ impl ArstyperWidget for Test {
 impl StatefulWidgetRef for Test {
     type State = TestState<'static>;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let word_i = state.word_i;
+        let _word_i = state.word_i;
         Paragraph::new(Line::from(
             state
                 .words
