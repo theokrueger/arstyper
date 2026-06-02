@@ -57,17 +57,3 @@ pub enum UiRequest {
     //// Set the statusbar to this message. Will overwrite any existing message
     //DisplayStatus(String, DateTime<Local>),
 }
-
-/// Common style shortcuts
-pub struct Styles {
-    pub root: Style,
-    pub root_inv: Style,
-    pub modeline: Style,
-    pub modeline_inv: Style,
-    pub accent: Style,
-    pub accent_inv: Style,
-    pub untyped: Style,
-    pub typed: Style,
-    pub incorrect: Style,
-    pub cursor: Style,
-}

@@ -1,7 +1,9 @@
 //! Menu bar screen
 use crate::{
+    consts::{self, Styles},
+    sty,
     traits::ArstyperScreen,
-    ui::{Overlay, Screen, Styles, UiRequest},
+    ui::{Overlay, Screen, UiRequest},
 };
 
 use ratatui::{
@@ -10,10 +12,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::Stylize,
     text::{Line, Span},
-    widgets::{
-        Block, BorderType, Borders, Clear, Padding, Paragraph,
-        Widget, Wrap,
-    },
+    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Widget, Wrap},
 };
 use std::{
     cmp::{max, min},
@@ -43,7 +42,6 @@ const SETTINGS: [Setting; N_SETTINGS] = [
 pub struct MenuBar {
     index: usize,
     query: String,
-    styles: Rc<Styles>,
     tx: SyncSender<UiRequest>,
 }
 
@@ -59,11 +57,10 @@ fn filter_settings(query: &str) -> Vec<(&'static str, usize)> {
 }
 
 impl ArstyperScreen for MenuBar {
-    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> Self {
+    fn new(tx: SyncSender<UiRequest>) -> Self {
         Self {
             index: 0,
             query: String::with_capacity(10),
-            styles: s,
             tx: tx,
         }
     }
@@ -75,7 +72,7 @@ impl ArstyperScreen for MenuBar {
         let b = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Double)
-            .style(self.styles.accent)
+            .style(sty!(accent))
             .padding(Padding::horizontal(1));
         let bi = b.inner(area);
         b.render(area, buf);
@@ -92,7 +89,7 @@ impl ArstyperScreen for MenuBar {
             .enumerate()
             .filter_map(|(i, x)| {
                 if i == self.index {
-                    Some(Line::from(Span::raw(x.0).style(self.styles.accent_inv)))
+                    Some(Line::from(Span::raw(x.0).style(sty!(accent_inv))))
                 } else if i >= start && i < end {
                     Some(Line::from(x.0))
                 } else {
@@ -101,7 +98,7 @@ impl ArstyperScreen for MenuBar {
             })
             .collect::<Vec<Line>>();
         Paragraph::new(lines)
-            .style(self.styles.root)
+            .style(sty!(root))
             .wrap(Wrap { trim: false })
             .render(list_a, buf);
 
@@ -109,12 +106,12 @@ impl ArstyperScreen for MenuBar {
         Line::from(vec![
             Span::raw("> "),
             if self.query.len() == 0 {
-                Span::styled("type to search", self.styles.root).italic()
+                Span::styled("type to search", sty!(root)).italic()
             } else {
                 Span::raw(self.query.clone())
             },
         ])
-        .style(self.styles.accent)
+        .style(sty!(accent))
         .render(search_a, buf);
     }
 

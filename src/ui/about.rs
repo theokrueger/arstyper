@@ -1,7 +1,9 @@
 //! "About this program" screen
 use crate::{
+    consts::{self, Styles},
+    sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
-    ui::{Styles, UiRequest},
+    ui::UiRequest,
 };
 
 use ratatui::{
@@ -30,7 +32,6 @@ const ABOUT_TEXT: &str = include_str!("./ABOUT.txt"); // easier to write there t
 
 /// About widget
 pub struct About {
-    styles: Rc<Styles>,
     tx: SyncSender<UiRequest>,
 }
 
@@ -80,11 +81,11 @@ impl StatefulWidgetRef for About {
         // body text
         let b = Block::new()
             .borders(Borders::TOP)
-            .style(self.styles.accent)
+            .style(sty!(accent))
             .title("About arstyper".bold())
             .padding(Padding::horizontal(1));
         let mut p = Paragraph::new(text)
-            .style(self.styles.root)
+            .style(sty!(root))
             .wrap(Wrap { trim: false });
 
         // scrollbar
@@ -94,22 +95,22 @@ impl StatefulWidgetRef for About {
 
         let mut sbs = ScrollbarState::new(state.max).position(state.scroll);
         Scrollbar::new(ScrollbarOrientation::VerticalRight)
-            .style(self.styles.root)
+            .style(sty!(root))
             .render(scrollbar_a, buf, &mut sbs);
 
         p.render(text_a, buf);
 
         // footer
         Line::from("Use ⭡/⭣ to scroll or 'q' to go back.")
-            .style(self.styles.accent)
+            .style(sty!(accent))
             .centered()
             .render(footer_a, buf);
     }
 }
 
 impl ArstyperWidget for About {
-    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> io::Result<Self> {
-        Ok(Self { styles: s, tx: tx })
+    fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
+        Ok(Self { tx: tx })
     }
 
     fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State) {

@@ -1,7 +1,9 @@
 //! Statistics screen
 use crate::{
+    consts::{self, Styles},
+    sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
-    ui::{Styles, UiRequest},
+    ui::UiRequest,
 };
 
 use ratatui::{
@@ -24,13 +26,12 @@ impl ArstyperWidgetState for StatsState {
 
 /// Stats screen
 pub struct Stats {
-    styles: Rc<Styles>,
     tx: SyncSender<UiRequest>,
 }
 
 impl ArstyperWidget for Stats {
-    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> io::Result<Self> {
-        Ok(Self { styles: s, tx: tx })
+    fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
+        Ok(Self { tx: tx })
     }
 
     fn handle_events(&mut self, _key: KeyEvent, _state: &mut Self::State) {}
@@ -40,11 +41,11 @@ impl StatefulWidgetRef for Stats {
     type State = StatsState;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
         Paragraph::new("stats go here")
-            .style(self.styles.root)
+            .style(sty!(root))
             .block(
                 Block::new()
                     .borders(Borders::TOP)
-                    .style(self.styles.accent)
+                    .style(sty!(accent))
                     .title("Statistics".bold())
                     .padding(Padding::horizontal(1)),
             )

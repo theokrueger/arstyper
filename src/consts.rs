@@ -1,0 +1,47 @@
+//! due to unsafe blocks, it is assumed that every OnceCell herein is initialised before UI init.
+//! therefore, it will always be memory safe even with unchecked unwraps
+
+use crate::config::Config;
+use once_cell::sync::OnceCell;
+use ratatui::style::Style;
+
+/* CONFIG */
+pub static CONFIG: OnceCell<Config> = OnceCell::new();
+
+#[macro_export]
+macro_rules! config {
+    ($name:ident$(.$field:ident)*) => {
+        unsafe { crate::consts::CONFIG.get().unwrap_unchecked().$name$(.$field)* }
+    };
+}
+
+#[macro_export]
+macro_rules! config_ref {
+    ($name:ident$(.$field:ident)*) => {
+        unsafe { &crate::consts::CONFIG.get().unwrap_unchecked().$name$(.$field)* }
+    };
+}
+
+/* UI STYLE */
+pub static STYLES: OnceCell<Styles> = OnceCell::new();
+
+/// Common style shortcuts
+pub struct Styles {
+    pub root: Style,
+    pub root_inv: Style,
+    pub modeline: Style,
+    pub modeline_inv: Style,
+    pub accent: Style,
+    pub accent_inv: Style,
+    pub untyped: Style,
+    pub typed: Style,
+    pub incorrect: Style,
+    pub cursor: Style,
+}
+
+#[macro_export]
+macro_rules! sty {
+    ($name:ident) => {
+        unsafe { crate::consts::STYLES.get().unwrap_unchecked().$name }
+    };
+}

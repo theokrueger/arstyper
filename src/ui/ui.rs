@@ -1,7 +1,10 @@
 use crate::{
+    config, config_ref,
+    consts::{self, Styles},
+    sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{
-        AppState, Overlay, Screen, Styles, UiRequest,
+        AppState, Overlay, Screen, UiRequest,
         about::{About, AboutState},
         menubar::MenuBar,
         results::{Results, ResultsState},
@@ -35,7 +38,7 @@ impl Ui {
     }
 
     /// 'tick' to update state/logic of ui
-    pub fn tick(&self, state: &mut UiState) -> io::Result<()> {
+    pub fn tick(&self, state: &mut UiState<'static>) -> io::Result<()> {
         self.handle_events(state)?;
 
         // non-event-driven state logic
@@ -60,7 +63,7 @@ impl Ui {
     }
 
     /// handle keyboard events
-    pub fn handle_events(&self, state: &mut UiState) -> io::Result<()> {
+    pub fn handle_events(&self, state: &mut UiState<'static>) -> io::Result<()> {
         // if poll(Duration::from_secs(1))?
         if let Event::Key(key) = event::read()? {
             let mut pass_from_global = true;
@@ -116,7 +119,7 @@ impl Ui {
 }
 
 impl StatefulWidgetRef for Ui {
-    type State = UiState;
+    type State = UiState<'static>;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if area.width < 20 || area.height < 10 {
             Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
@@ -157,15 +160,14 @@ impl StatefulWidgetRef for Ui {
 }
 
 impl StatefulWidget for &Ui {
-    type State = UiState;
+    type State = UiState<'static>;
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.render_ref(area, buf, state);
     }
 }
 
 /// State of main UI and all subwidgets
-pub struct UiState {
-    pub cfg: Config,
+pub struct UiState<'a> {
     pub lang: Lang,
 
     pub state: AppState,
@@ -174,7 +176,7 @@ pub struct UiState {
     pub overlay: Overlay,
 
     pub test: Test,
-    pub test_state: TestState,
+    pub test_state: TestState<'a>,
 
     pub stats: Stats,
     pub stats_state: StatsState,
@@ -191,53 +193,30 @@ pub struct UiState {
     /// When the status message is to be cleared
     pub clear_status_at: DateTime<Local>,
 
-    /// Text and widget styles, distilled from cfg
-    pub styles: Rc<Styles>,
-
     // communication between screens and stuff
     pub uireq_tx: SyncSender<UiRequest>,
     pub uireq_rx: Receiver<UiRequest>,
 }
 
-impl UiState {
-    pub fn new(cfg: Config) -> Result<Self, std::io::Error> {
-        let lang = Lang::get_by_name(&cfg.lang)?;
-
-        let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
-        let styles = Rc::new(Styles {
-            root: root_sty,
-            root_inv: root_sty.add_modifier(Modifier::REVERSED),
-            modeline: root_sty.bg(cfg.theme.accent),
-            modeline_inv: root_sty
-                .bg(cfg.theme.accent)
-                .add_modifier(Modifier::REVERSED),
-            accent: root_sty.fg(cfg.theme.accent),
-            accent_inv: root_sty
-                .fg(cfg.theme.accent)
-                .add_modifier(Modifier::REVERSED),
-            untyped: root_sty.fg(cfg.theme.untyped_text),
-            typed: root_sty.fg(cfg.theme.typed_text),
-            incorrect: root_sty.fg(cfg.theme.incorrect_text),
-            cursor: root_sty.bg(cfg.theme.accent),
-        });
+impl UiState<'_> {
+    pub fn new() -> Result<Self, std::io::Error> {
+        let lang = Lang::get_by_name(config_ref!(lang))?;
 
         let (tx, rx) = sync_channel::<UiRequest>(5);
         let mut ret = Self {
-            styles: styles.clone(),
-
-            test: Test::new(styles.clone(), tx.clone())?,
+            test: Test::new(tx.clone())?,
             test_state: TestState::new()?,
 
-            stats: Stats::new(styles.clone(), tx.clone())?,
+            stats: Stats::new(tx.clone())?,
             stats_state: StatsState::new()?,
 
-            results: Results::new(styles.clone(), tx.clone())?,
+            results: Results::new(tx.clone())?,
             results_state: ResultsState::new()?,
 
-            about: About::new(styles.clone(), tx.clone())?,
+            about: About::new(tx.clone())?,
             about_state: AboutState::new()?,
 
-            menubar: MenuBar::new(styles.clone(), tx.clone()),
+            menubar: MenuBar::new(tx.clone()),
 
             state: AppState::default(),
             overlay: Overlay::default(),
@@ -247,7 +226,6 @@ impl UiState {
             status: "Welcome to arstyper! Press <F1> for help, or <Ctrl-C> to exit.".to_string(),
             clear_status_at: Local::now() + TimeDelta::seconds(5),
 
-            cfg: cfg,
             lang: lang,
 
             uireq_tx: tx,
@@ -261,9 +239,9 @@ impl UiState {
 
     fn new_test(&mut self) {
         self.test_state
-            .test_from(self.lang.gen_words(self.cfg.word_count as usize));
+            .test_from(self.lang.gen_words(config!(word_count) as usize));
         self.test_state
-            .set_title(format!("{} {}", self.lang.name, self.cfg.word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
+            .set_title(format!("{} {}", self.lang.name, config!(word_count)).to_string()); // TODO use enum and strum and other things when more test types introduced
     }
 
     pub fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
@@ -272,16 +250,16 @@ impl UiState {
         let mode = format!("{}", self.screen);
         Line::from(vec![
             Span::raw("arstyper "),
-            Span::raw(mode).style(self.styles.modeline_inv),
+            Span::raw(mode).style(sty!(modeline_inv)),
         ])
-        .style(self.styles.modeline)
+        .style(sty!(modeline))
         .render(c1, buf);
 
-        let time = if self.cfg.ui.show_clock {
+        let time = if config!(ui.show_clock) {
             let t = Local::now();
             format!(
                 "{:02}:{:02}",
-                if self.cfg.ui.hour_24 {
+                if config!(ui.hour_24) {
                     t.hour()
                 } else {
                     t.hour12().1
@@ -291,15 +269,11 @@ impl UiState {
         } else {
             " ".to_string()
         };
-        Line::from(time)
-            .style(self.styles.modeline)
-            .render(time_a, buf);
+        Line::from(time).style(sty!(modeline)).render(time_a, buf);
     }
 
     pub fn render_status(&self, area: Rect, buf: &mut Buffer) {
-        Line::raw(&self.status)
-            .style(self.styles.root)
-            .render(area, buf);
+        Line::raw(&self.status).style(sty!(root)).render(area, buf);
     }
 
     pub fn set_status_for(&mut self, s: String, t: TimeDelta) {

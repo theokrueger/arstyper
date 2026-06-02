@@ -1,7 +1,9 @@
 //! Typing test struct
 use crate::{
+    consts::{self, Styles},
+    sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
-    ui::{Screen, Styles, UiRequest},
+    ui::{Screen, UiRequest},
 };
 
 use ratatui::{
@@ -31,25 +33,20 @@ impl Keypress {
 }
 
 /// A single test word and its keypresses.
-struct TestWord {
+struct TestWord<'a> {
     word: String,
     /// Series of keypressed used to build `spans`
     presses: Vec<Keypress>,
+    /// Spans that compose this typed word
+    spans: Vec<Span<'a>>,
 }
 
-impl TestWord {
+impl TestWord<'_> {
     /// Styled spans showing typed, untyped, cursor, etc
-    fn as_span_vec(
-        &self,
-        show_cursor: bool,
-        correct: Style,
-        incorrect: Style,
-        untyped: Style,
-        cursor: Style,
-    ) -> Vec<Span<'_>> {
+    fn update_span_vec(&mut self, show_cursor: bool) {
         let mut state = true; // true for correct
         let mut typed = String::new();
-        let mut spans = Vec::<Span>::new();
+        self.spans.clear();
 
         let mut t_i = self.word.chars();
         let mut p_i = self.presses.iter().map(|x| x.key);
@@ -67,7 +64,7 @@ impl TestWord {
                     typed.push(p);
                 } else {
                     // push incorrects
-                    spans.push(Span::styled(typed, incorrect));
+                    self.spans.push(Span::styled(typed, sty!(incorrect)));
                     // flip state
                     state = !state;
                     typed = String::new();
@@ -81,7 +78,7 @@ impl TestWord {
                     typed.push(p);
                 } else {
                     // push corrects
-                    spans.push(Span::styled(typed, correct));
+                    self.spans.push(Span::styled(typed, sty!(typed)));
                     // flip state
                     state = !state;
                     typed = String::new();
@@ -91,36 +88,50 @@ impl TestWord {
             }
         }
 
-        spans.push(Span::styled(typed, if state { correct } else { incorrect }));
+        self.spans.push(Span::styled(
+            typed,
+            if state { sty!(typed) } else { sty!(incorrect) },
+        ));
 
         // fill remaining word
         if let Some(c) = t_i.next() {
             let s = c.to_string();
-            spans.push(Span::styled(s, if show_cursor { cursor } else { untyped }));
+            self.spans.push(Span::styled(
+                s,
+                if show_cursor {
+                    sty!(cursor)
+                } else {
+                    sty!(untyped)
+                },
+            ));
 
             typed = t_i.collect();
             typed.push(' ');
-            spans.push(Span::styled(typed, untyped));
+            self.spans.push(Span::styled(typed, sty!(untyped)));
         } else {
-            spans.push(Span::styled(
+            self.spans.push(Span::styled(
                 " ",
-                if show_cursor { cursor } else { untyped },
+                if show_cursor {
+                    sty!(cursor)
+                } else {
+                    sty!(untyped)
+                },
             ));
         }
-        return spans;
     }
-}
-
-impl From<String> for TestWord {
     fn from(string: String) -> Self {
-        Self {
+        let mut tw = Self {
             presses: Vec::with_capacity(string.len()),
             word: string,
-        }
+            spans: Vec::new(),
+        };
+
+        tw.update_span_vec(false);
+        return tw;
     }
 }
 
-impl TestWord {
+impl TestWord<'_> {
     /// Is the word fully and correctly typed
     fn is_correct(&self) -> bool {
         return self
@@ -144,13 +155,13 @@ impl TestWord {
 }
 
 /// The actual typing test info
-pub struct TestState {
-    words: Vec<TestWord>,
+pub struct TestState<'a> {
+    words: Vec<TestWord<'a>>,
     word_i: usize,
     title: String,
 }
 
-impl ArstyperWidgetState for TestState {
+impl ArstyperWidgetState for TestState<'_> {
     fn new() -> io::Result<Self> {
         Ok(Self {
             words: Vec::new(),
@@ -161,22 +172,25 @@ impl ArstyperWidgetState for TestState {
 }
 
 pub struct Test {
-    styles: Rc<Styles>,
     /// Message to the UI to be performed on next tick. Didn't feel like using an actual message system lmao
     tx: SyncSender<UiRequest>,
 }
 
 impl ArstyperWidget for Test {
-    fn new(s: Rc<Styles>, tx: SyncSender<UiRequest>) -> io::Result<Self> {
-        Ok(Self { styles: s, tx: tx })
+    fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
+        Ok(Self { tx: tx })
     }
 
     fn handle_events(&mut self, key: KeyEvent, state: &mut TestState) {
         let mut word = &mut state.words[state.word_i];
         match key.code {
             KeyCode::Char(' ') => {
+                // remove cursor from current
                 word.presses.push(Keypress::from_chr(' '));
+                word.update_span_vec(false);
+                // increment to next
                 state.word_i += 1;
+                word = &mut state.words[state.word_i]
             }
             KeyCode::Char(chr) => {
                 word.presses.push(Keypress::from_chr(chr));
@@ -189,6 +203,9 @@ impl ArstyperWidget for Test {
                 // should go to previous word?
                 if word.presses.len() == 0 {
                     if state.word_i != 0 {
+                        // remove cursor from current
+                        word.update_span_vec(false);
+                        // decrement to previous
                         state.word_i -= 1;
                         word = &mut state.words[state.word_i];
                     }
@@ -208,6 +225,8 @@ impl ArstyperWidget for Test {
             }
             _ => {}
         }
+        // update display
+        word.update_span_vec(true);
         // check for completion
         if state.word_i >= state.words.len() - 1 && state.words[state.words.len() - 1].is_typed() {
             self.tx
@@ -218,31 +237,22 @@ impl ArstyperWidget for Test {
 }
 
 impl StatefulWidgetRef for Test {
-    type State = TestState;
+    type State = TestState<'static>;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let word_i = state.word_i;
         Paragraph::new(Line::from(
             state
                 .words
                 .iter()
-                .enumerate()
-                .map(|(i, tw)| {
-                    tw.as_span_vec(
-                        word_i == i,
-                        self.styles.typed,
-                        self.styles.incorrect,
-                        self.styles.untyped,
-                        self.styles.cursor,
-                    )
-                })
+                .map(|tw| tw.spans.clone())
                 .flatten()
                 .collect::<Vec<Span>>(),
         ))
-        .style(self.styles.root)
+        .style(sty!(root))
         .block(
             Block::new()
                 .borders(Borders::TOP)
-                .style(self.styles.accent)
+                .style(sty!(accent))
                 .title(state.title.as_str().bold())
                 .padding(Padding::horizontal(1)),
         )
@@ -251,7 +261,7 @@ impl StatefulWidgetRef for Test {
     }
 }
 
-impl TestState {
+impl TestState<'_> {
     /// Set title
     pub fn set_title(&mut self, title: String) {
         self.title = title;
@@ -260,8 +270,9 @@ impl TestState {
     /// Create test from an iterator over string items
     pub fn test_from(&mut self, words: impl Iterator<Item = String>) {
         self.words = words
-            .map(|w| w.to_lowercase().into())
+            .map(|w| TestWord::from(w.to_lowercase()))
             .collect::<Vec<TestWord>>();
         self.word_i = 0;
+        self.words[0].update_span_vec(true);
     }
 }
