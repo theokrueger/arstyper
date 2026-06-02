@@ -1,7 +1,7 @@
 //! Menu bar screen
 use crate::{
     sty,
-    traits::{ArstyperWidget, ArstyperWidgetState},
+    traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{Overlay, Screen, UiRequest},
 };
 
@@ -42,6 +42,17 @@ const SETTINGS: [Setting; N_SETTINGS] = [
 /// Menu overlay
 pub struct MenuBar {
     tx: SyncSender<UiRequest>,
+}
+
+impl ArstyperOverlay for MenuBar {
+    fn render_ref_overlay(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        use Constraint::{Length, Min, Percentage};
+        let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
+        let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
+        let [_, v_a, _] = v.areas(area);
+        let [_, a, _] = h.areas(v_a);
+        self.render_ref(a, buf, state);
+    }
 }
 
 impl ArstyperWidget for MenuBar {

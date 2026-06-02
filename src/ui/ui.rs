@@ -2,7 +2,7 @@ use crate::{
     config, config_ref,
     lang::Lang,
     sty,
-    traits::{ArstyperWidget, ArstyperWidgetState},
+    traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{
         AppState, Overlay, Screen, UiRequest,
         about::{About, AboutState},
@@ -143,13 +143,9 @@ impl StatefulWidgetRef for Ui {
         match state.overlay {
             Overlay::None => {}
             Overlay::MenuBar => {
-                let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
-                let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
-                let [_, mbv_a, _] = v.areas(body_a);
-                let [_, mb_a, _] = h.areas(mbv_a);
                 state
                     .menubar
-                    .render_ref(mb_a, buf, &mut state.menubar_state);
+                    .render_ref_overlay(area, buf, &mut state.menubar_state);
             }
         }
 
