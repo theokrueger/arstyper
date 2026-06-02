@@ -4,18 +4,6 @@ use ratatui::{
 };
 use std::{io, sync::mpsc::SyncSender};
 
-/// Renderable body screen for Arstyper
-pub trait ArstyperScreen {
-    /// Create a new empty version of this screen
-    fn new(tx: SyncSender<UiRequest>) -> Self;
-
-    /// Render this screen into the body
-    fn render(&self, area: Rect, buf: &mut Buffer);
-
-    /// Handle crossterm events for this screen
-    fn handle_events(&mut self, key: KeyEvent);
-}
-
 /// Renderable Stateful Widget for Arstyper
 pub trait ArstyperWidget: StatefulWidgetRef + Sized {
     /// Handle crossterm events for this widget

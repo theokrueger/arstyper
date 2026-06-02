@@ -1,7 +1,7 @@
 //! Menu bar screen
 use crate::{
     sty,
-    traits::ArstyperScreen,
+    traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Overlay, Screen, UiRequest},
 };
 
@@ -11,10 +11,13 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::Stylize,
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Widget, Wrap},
+    widgets::{
+        Block, BorderType, Borders, Clear, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap,
+    },
 };
 use std::{
     cmp::{max, min},
+    io,
     sync::mpsc::SyncSender,
 };
 
@@ -36,34 +39,49 @@ const SETTINGS: [Setting; N_SETTINGS] = [
     ("Exit arstyper", UiRequest::Exit, "quit,stop,exit,close"),
 ];
 
-/// Results screen
+/// Menu overlay
 pub struct MenuBar {
-    index: usize,
-    query: String,
     tx: SyncSender<UiRequest>,
 }
 
-fn filter_settings(query: &str) -> Vec<(&'static str, usize)> {
-    let mut ret: Vec<(&str, usize)> = Vec::new();
-    let _cnt = 0;
-    for (i, s) in SETTINGS.iter().enumerate() {
-        if s.0.to_lowercase().contains(query) || s.2.contains(query) {
-            ret.push((s.0, i));
+impl ArstyperWidget for MenuBar {
+    fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
+        Ok(Self { tx: tx })
+    }
+
+    fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State) {
+        match key.code {
+            KeyCode::Char(c) => {
+                state.index = 0;
+                state.query.push(c);
+                state.update_filtered_subset();
+            }
+            KeyCode::Backspace => {
+                state.query.pop();
+                state.update_filtered_fresh();
+            }
+            KeyCode::Up => {
+                state.index = max(1, state.index) - 1;
+            }
+            KeyCode::Down => {
+                state.index = min(state.index + 1, state.filtered.len() - 1);
+            }
+            KeyCode::Enter => {
+                if state.filtered.len() >= state.index {
+                    self.tx
+                        .send(SETTINGS[state.filtered[state.index].1].1.clone())
+                        .unwrap();
+                }
+                self.tx.send(UiRequest::ShowOverlay(Overlay::None)).unwrap();
+            }
+            _ => {}
         }
     }
-    return ret;
 }
 
-impl ArstyperScreen for MenuBar {
-    fn new(tx: SyncSender<UiRequest>) -> Self {
-        Self {
-            index: 0,
-            query: String::with_capacity(10),
-            tx: tx,
-        }
-    }
-
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+impl StatefulWidgetRef for MenuBar {
+    type State = MenuBarState;
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         use Constraint::{Length, Min};
         // area
         Clear.render(area, buf);
@@ -78,15 +96,19 @@ impl ArstyperScreen for MenuBar {
         let [list_a, search_a] = Layout::vertical([Min(1), Length(1)]).areas(bi);
 
         // list
-        let items = filter_settings(&self.query);
         let n: usize = list_a.height.into();
-        let start: usize = (min(max(items.len(), n) - n, max(n / 2, self.index) - n / 2)).into();
+        let start: usize = (min(
+            max(state.filtered.len(), n) - n,
+            max(n / 2, state.index) - n / 2,
+        ))
+        .into();
         let end: usize = (start + n).into();
-        let lines = items
+        let lines = state
+            .filtered
             .iter()
             .enumerate()
             .filter_map(|(i, x)| {
-                if i == self.index {
+                if i == state.index {
                     Some(Line::from(Span::raw(x.0).style(sty!(accent_inv))))
                 } else if i >= start && i < end {
                     Some(Line::from(x.0))
@@ -103,41 +125,52 @@ impl ArstyperScreen for MenuBar {
         // search
         Line::from(vec![
             Span::raw("> "),
-            if self.query.len() == 0 {
+            if state.query.len() == 0 {
                 Span::styled("type to search", sty!(root)).italic()
             } else {
-                Span::raw(self.query.clone())
+                Span::raw(state.query.clone())
             },
         ])
         .style(sty!(accent))
         .render(search_a, buf);
     }
+}
 
-    fn handle_events(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Char(c) => {
-                self.index = 0;
-                self.query.push(c);
+/// Menu Overlay State
+pub struct MenuBarState {
+    index: usize,
+    query: String,
+    filtered: Vec<(&'static str, usize)>,
+}
+
+impl MenuBarState {
+    /// Check everything (i.e. on backspaces)
+    fn update_filtered_fresh(&mut self) {
+        self.filtered.clear();
+        for (i, s) in SETTINGS.iter().enumerate() {
+            if s.0.to_lowercase().contains(&self.query) || s.2.contains(&self.query) {
+                self.filtered.push((s.0, i));
             }
-            KeyCode::Backspace => {
-                self.query.pop();
-            }
-            KeyCode::Up => {
-                self.index = max(1, self.index) - 1;
-            }
-            KeyCode::Down => {
-                self.index = min(self.index + 1, N_SETTINGS); // TODO annoying and stuff
-            }
-            KeyCode::Enter => {
-                let items = filter_settings(&self.query);
-                if items.len() >= self.index {
-                    self.tx
-                        .send(SETTINGS[items[self.index].1].1.clone())
-                        .unwrap();
-                }
-                self.tx.send(UiRequest::ShowOverlay(Overlay::None)).unwrap();
-            }
-            _ => {}
         }
+    }
+
+    /// Check only currently filtered (i.e. on char typed)
+    fn update_filtered_subset(&mut self) {
+        self.filtered.retain(|(_, i)| {
+            let s = &SETTINGS[*i];
+            s.0.to_lowercase().contains(&self.query) || s.2.contains(&self.query)
+        });
+    }
+}
+
+impl ArstyperWidgetState for MenuBarState {
+    fn new() -> io::Result<Self> {
+        let mut s = Self {
+            index: 0,
+            query: String::with_capacity(10),
+            filtered: Vec::with_capacity(N_SETTINGS),
+        };
+        s.update_filtered_fresh();
+        Ok(s)
     }
 }

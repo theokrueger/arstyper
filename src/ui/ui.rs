@@ -1,18 +1,18 @@
 use crate::{
     config, config_ref,
+    lang::Lang,
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{
         AppState, Overlay, Screen, UiRequest,
         about::{About, AboutState},
-        menubar::MenuBar,
+        menubar::{MenuBar, MenuBarState},
         results::{Results, ResultsState},
         stats::{Stats, StatsState},
         test::{Test, TestState},
     },
 };
 
-use crate::{lang::Lang, traits::ArstyperScreen};
 use chrono::{DateTime, Local, TimeDelta, Timelike};
 use ratatui::{
     buffer::Buffer,
@@ -107,7 +107,7 @@ impl Ui {
                             state.stats.handle_events(key, &mut state.stats_state)
                         }
                     },
-                    Overlay::MenuBar => state.menubar.handle_events(key),
+                    Overlay::MenuBar => state.menubar.handle_events(key, &mut state.menubar_state),
                 }
             }
         }
@@ -147,7 +147,9 @@ impl StatefulWidgetRef for Ui {
                 let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
                 let [_, mbv_a, _] = v.areas(body_a);
                 let [_, mb_a, _] = h.areas(mbv_a);
-                state.menubar.render(mb_a, buf);
+                state
+                    .menubar
+                    .render_ref(mb_a, buf, &mut state.menubar_state);
             }
         }
 
@@ -185,6 +187,7 @@ pub struct UiState<'a> {
     pub about_state: AboutState,
 
     pub menubar: MenuBar,
+    pub menubar_state: MenuBarState,
 
     pub status: String,
     /// When the status message is to be cleared
@@ -213,7 +216,8 @@ impl UiState<'_> {
             about: About::new(tx.clone())?,
             about_state: AboutState::new()?,
 
-            menubar: MenuBar::new(tx.clone()),
+            menubar: MenuBar::new(tx.clone())?,
+            menubar_state: MenuBarState::new()?,
 
             state: AppState::default(),
             overlay: Overlay::default(),

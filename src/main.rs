@@ -7,7 +7,6 @@ mod ui;
 
 use config::Config;
 use consts::Styles;
-use traits::ArstyperScreen;
 use ui::{
     AppState,
     ui::{Ui, UiState},
