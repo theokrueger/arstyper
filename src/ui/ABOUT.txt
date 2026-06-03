@@ -5,7 +5,7 @@ Inspired by Monkeytype and ttyper, arstyper offers a full-featured and customiza
 * Controls
 Globally:
   - Press <F1> to see this page.
-  - Press <Esc> to open/close the menu.
+  - Press <Esc> to open/close the menu, or go back to previous menu.
   - Press <Ctrl-C> to exit the program.
 
 Under the typing screen:

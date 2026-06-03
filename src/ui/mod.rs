@@ -33,7 +33,7 @@ pub enum Screen {
 #[derive(PartialEq, Clone)]
 /// Currenly enabled overlay
 pub enum Overlay {
-    MenuBar,
+    Menu,
 }
 
 #[derive(Clone)]

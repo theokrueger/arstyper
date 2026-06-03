@@ -52,7 +52,7 @@ impl Ui {
                 UiRequest::ChangeScreen(s) => state.change_screen(s),
                 UiRequest::ClearStatus => state.clear_status(),
                 UiRequest::GoToLastScreen => state.change_screen(state.last_screen.clone()),
-                UiRequest::AddOverlay(o) => {} // TODO
+                UiRequest::AddOverlay(o) => state.add_overlay(o)?,
                 UiRequest::RemoveOverlay => {
                     state.overlay_stack.pop();
                 }
@@ -294,5 +294,18 @@ impl UiState<'_> {
             self.last_screen = self.screen.clone();
         }
         self.screen = s;
+    }
+
+    pub fn add_overlay(&mut self, o: Overlay) -> io::Result<()> {
+        let mut s: Option<Box<dyn ArstyperOverlay>> = None;
+        match o {
+            Overlay::Menu => {
+                s = Some(Box::new(MenuOverlay::new(self.uireq_tx.clone())?));
+            }
+        }
+        unsafe {
+            self.overlay_stack.push(s.unwrap_unchecked());
+        }
+        Ok(())
     }
 }

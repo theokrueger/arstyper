@@ -99,8 +99,8 @@ impl ColorPreview {
                             self.state = AppState::Stopped
                         }
                     }
-                    KeyCode::Left => self.select_prev_palette(),
-                    KeyCode::Right => self.select_next_palette(),
+                    KeyCode::Left | KeyCode::Up => self.select_prev_palette(),
+                    KeyCode::Right | KeyCode::Down => self.select_next_palette(),
                     _ => {}
                 }
             }
