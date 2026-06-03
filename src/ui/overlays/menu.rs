@@ -1,4 +1,4 @@
-//! Menu bar screen
+//! Menu screen
 use crate::{
     sty,
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
@@ -41,15 +41,15 @@ const SETTINGS: [Setting; N_SETTINGS] = [
 
 /// Menu overlay
 pub struct MenuOverlay {
-    renderable: MenuBar,
-    state: MenuBarState,
+    renderable: Menu,
+    state: MenuState,
 }
 
 impl MenuOverlay {
     pub fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
         Ok(Self {
-            renderable: MenuBar::new(tx)?,
-            state: MenuBarState::new()?,
+            renderable: Menu::new(tx)?,
+            state: MenuState::new()?,
         })
     }
 }
@@ -69,11 +69,11 @@ impl ArstyperOverlay for MenuOverlay {
     }
 }
 
-pub struct MenuBar {
+struct Menu {
     tx: SyncSender<UiRequest>,
 }
 
-impl ArstyperWidget for MenuBar {
+impl ArstyperWidget for Menu {
     fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
         Ok(Self { tx: tx })
     }
@@ -108,8 +108,8 @@ impl ArstyperWidget for MenuBar {
     }
 }
 
-impl StatefulWidgetRef for MenuBar {
-    type State = MenuBarState;
+impl StatefulWidgetRef for Menu {
+    type State = MenuState;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         use Constraint::{Length, Min};
         // area
@@ -166,13 +166,13 @@ impl StatefulWidgetRef for MenuBar {
 }
 
 /// Menu Overlay State
-pub struct MenuBarState {
+pub struct MenuState {
     index: usize,
     query: String,
     filtered: Vec<(&'static str, usize)>,
 }
 
-impl MenuBarState {
+impl MenuState {
     /// Check everything (i.e. on backspaces)
     fn update_filtered_fresh(&mut self) {
         self.filtered.clear();
@@ -192,7 +192,7 @@ impl MenuBarState {
     }
 }
 
-impl ArstyperWidgetState for MenuBarState {
+impl ArstyperWidgetState for MenuState {
     fn new() -> io::Result<Self> {
         let mut s = Self {
             index: 0,

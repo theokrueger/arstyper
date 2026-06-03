@@ -1,7 +1,7 @@
 //! Root UI
 mod about;
 pub mod color_preview;
-mod menubar;
+mod overlays;
 mod results;
 mod stats;
 mod test;

@@ -6,7 +6,7 @@ use crate::{
     ui::{
         AppState, Overlay, Screen, UiRequest,
         about::{About, AboutState},
-        menubar::{MenuBar, MenuBarState, MenuOverlay},
+        overlays::menu::MenuOverlay,
         results::{Results, ResultsState},
         stats::{Stats, StatsState},
         test::{Test, TestState},
