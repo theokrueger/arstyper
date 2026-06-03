@@ -30,17 +30,17 @@ pub enum Screen {
     AboutScreen,
 }
 
-#[derive(Default, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 /// Currenly enabled overlay
 pub enum Overlay {
-    #[default]
-    None,
     MenuBar,
 }
 
 #[derive(Clone)]
 /// Request sent by screens to here
 pub enum UiRequest {
+    /// Do nothing
+    Empty,
     /// Exit the program
     Exit,
     /// Change the screen (duh)
@@ -50,7 +50,9 @@ pub enum UiRequest {
     /// Clear status
     ClearStatus,
     /// Set the overlay
-    ShowOverlay(Overlay),
+    AddOverlay(Overlay),
+    /// Remove the current overlay
+    RemoveOverlay,
     /// Discard current test and create a new one using current settings
     NewTest,
     //// Set the statusbar to this message. Will overwrite any existing message

@@ -26,11 +26,7 @@ type Setting = (&'static str, UiRequest, &'static str);
 
 const N_SETTINGS: usize = 3;
 const SETTINGS: [Setting; N_SETTINGS] = [
-    (
-        "Close Menu",
-        UiRequest::ShowOverlay(Overlay::None),
-        "cm,esc",
-    ),
+    ("Close Menu", UiRequest::Empty, "cm,esc"),
     (
         "View Help",
         UiRequest::ChangeScreen(Screen::AboutScreen),
@@ -101,7 +97,7 @@ impl ArstyperWidget for Menu {
                         .send(SETTINGS[state.filtered[state.index].1].1.clone())
                         .unwrap();
                 }
-                self.tx.send(UiRequest::ShowOverlay(Overlay::None)).unwrap();
+                self.tx.send(UiRequest::RemoveOverlay).unwrap();
             }
             _ => {}
         }
