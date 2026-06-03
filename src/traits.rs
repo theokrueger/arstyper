@@ -17,6 +17,7 @@ pub trait ArstyperWidgetState: Sized {
     fn new() -> io::Result<Self>;
 }
 
-pub trait ArstyperOverlay: ArstyperWidget {
-    fn render_ref_overlay(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State);
+pub trait ArstyperOverlay {
+    fn render_ref_overlay(&mut self, area: Rect, buf: &mut Buffer);
+    fn handle_events(&mut self, key: KeyEvent);
 }

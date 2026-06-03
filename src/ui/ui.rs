@@ -6,7 +6,7 @@ use crate::{
     ui::{
         AppState, Overlay, Screen, UiRequest,
         about::{About, AboutState},
-        menubar::{MenuBar, MenuBarState},
+        menubar::{MenuBar, MenuBarState, MenuOverlay},
         results::{Results, ResultsState},
         stats::{Stats, StatsState},
         test::{Test, TestState},
@@ -51,7 +51,7 @@ impl Ui {
                 UiRequest::ChangeScreen(s) => state.change_screen(s),
                 UiRequest::ClearStatus => state.clear_status(),
                 UiRequest::GoToLastScreen => state.change_screen(state.last_screen.clone()),
-                UiRequest::ShowOverlay(o) => state.overlay = o,
+                UiRequest::ShowOverlay(o) => {} // TODO
                 UiRequest::NewTest => state.new_test(),
             }
         }
@@ -74,16 +74,20 @@ impl Ui {
                         }
                     }
                     KeyCode::F(1) => {
-                        if state.overlay == Overlay::None {
+                        if state.overlay_stack.len() <= 0 {
                             state.change_screen(Screen::AboutScreen);
                             pass_from_global = false;
                         }
                     }
                     KeyCode::Esc => {
-                        state.overlay = if state.overlay == Overlay::None {
-                            Overlay::MenuBar
+                        if state.overlay_stack.len() <= 0 {
+                            state
+                                .overlay_stack
+                                .push(Box::new(MenuOverlay::new(state.uireq_tx.clone())?));
                         } else {
-                            Overlay::None
+                            unsafe {
+                                state.overlay_stack.pop().unwrap_unchecked();
+                            }
                         };
                         pass_from_global = false;
                     }
@@ -93,9 +97,10 @@ impl Ui {
                 if !pass_from_global {
                     return Ok(());
                 }
+
                 // overlay takes precedent over screen
-                match state.overlay {
-                    Overlay::None => match state.screen {
+                if state.overlay_stack.len() <= 0 {
+                    match state.screen {
                         Screen::AboutScreen => {
                             state.about.handle_events(key, &mut state.about_state)
                         }
@@ -106,8 +111,15 @@ impl Ui {
                         Screen::StatsScreen => {
                             state.stats.handle_events(key, &mut state.stats_state)
                         }
-                    },
-                    Overlay::MenuBar => state.menubar.handle_events(key, &mut state.menubar_state),
+                    };
+                } else {
+                    unsafe {
+                        state
+                            .overlay_stack
+                            .last_mut()
+                            .unwrap_unchecked()
+                            .handle_events(key);
+                    }
                 }
             }
         }
@@ -140,14 +152,10 @@ impl StatefulWidgetRef for Ui {
             Screen::AboutScreen => state.about.render_ref(body_a, buf, &mut state.about_state),
         }
 
-        match state.overlay {
-            Overlay::None => {}
-            Overlay::MenuBar => {
-                state
-                    .menubar
-                    .render_ref_overlay(area, buf, &mut state.menubar_state);
-            }
-        }
+        state
+            .overlay_stack
+            .iter_mut()
+            .for_each(|x| x.render_ref_overlay(area, buf));
 
         state.render_modeline(mode_a, buf);
         state.render_status(status_a, buf);
@@ -168,7 +176,7 @@ pub struct UiState<'a> {
     pub state: AppState,
     pub screen: Screen,
     pub last_screen: Screen,
-    pub overlay: Overlay,
+    pub overlay_stack: Vec<Box<dyn ArstyperOverlay>>,
 
     pub test: Test,
     pub test_state: TestState<'a>,
@@ -181,9 +189,6 @@ pub struct UiState<'a> {
 
     pub about: About,
     pub about_state: AboutState,
-
-    pub menubar: MenuBar,
-    pub menubar_state: MenuBarState,
 
     pub status: String,
     /// When the status message is to be cleared
@@ -212,13 +217,10 @@ impl UiState<'_> {
             about: About::new(tx.clone())?,
             about_state: AboutState::new()?,
 
-            menubar: MenuBar::new(tx.clone())?,
-            menubar_state: MenuBarState::new()?,
-
             state: AppState::default(),
-            overlay: Overlay::default(),
             screen: Screen::default(),
             last_screen: Screen::default(),
+            overlay_stack: Vec::new(),
 
             status: "Welcome to arstyper! Press <F1> for help, or <Ctrl-C> to exit.".to_string(),
             clear_status_at: Local::now() + TimeDelta::seconds(5),
