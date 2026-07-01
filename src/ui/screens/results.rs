@@ -8,8 +8,12 @@ use crate::{
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyCode, KeyEvent},
-    layout::Rect,
+    layout::{
+        Constraint::{Length, Min},
+        Layout, Rect,
+    },
     style::Stylize,
+    text::Line,
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
 use std::{io, sync::mpsc::SyncSender};
@@ -49,16 +53,25 @@ impl ArstyperWidget for Results {
 impl StatefulWidgetRef for Results {
     type State = ResultsState;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
-        Paragraph::new("results go here")
+        let [text_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(area);
+
+        // body text
+        let b = Block::new()
+            .borders(Borders::TOP)
+            .style(sty!(accent))
+            .title("Results & Analysis".bold())
+            .padding(Padding::horizontal(1));
+        let p = Paragraph::new("results go here")
             .style(sty!(root))
-            .block(
-                Block::new()
-                    .borders(Borders::TOP)
-                    .style(sty!(accent))
-                    .title("Results and Analysis".bold())
-                    .padding(Padding::horizontal(1)),
-            )
-            .wrap(Wrap { trim: true })
-            .render(area, buf);
+            .wrap(Wrap { trim: false })
+            .block(b);
+
+        p.render(text_a, buf);
+
+        // footer
+        Line::from("Use ⭡/⭣ to scroll or 'q' to go back.")
+            .style(sty!(accent))
+            .centered()
+            .render(footer_a, buf);
     }
 }

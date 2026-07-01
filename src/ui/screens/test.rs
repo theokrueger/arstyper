@@ -181,18 +181,20 @@ impl ArstyperWidget for Test {
     }
 
     fn handle_events(&mut self, key: KeyEvent, state: &mut TestState) {
-        let mut word = &mut state.words[state.word_i];
         match key.code {
             KeyCode::Char(' ') => {
                 // remove cursor from current
-                word.presses.push(Keypress::from_chr(' '));
-                word.update_span_vec(false);
-                // increment to next
+                state.words[state.word_i]
+                    .presses
+                    .push(Keypress::from_chr(' '));
+                state.words[state.word_i].update_span_vec(false);
+                // increment to next when applicable
                 state.word_i += 1;
-                word = &mut state.words[state.word_i]
             }
             KeyCode::Char(chr) => {
-                word.presses.push(Keypress::from_chr(chr));
+                state.words[state.word_i]
+                    .presses
+                    .push(Keypress::from_chr(chr));
             }
             KeyCode::Tab => self
                 .tx
@@ -200,13 +202,12 @@ impl ArstyperWidget for Test {
                 .unwrap(),
             KeyCode::Backspace => {
                 // should go to previous word?
-                if word.presses.len() == 0 {
+                if state.words[state.word_i].presses.len() == 0 {
                     if state.word_i != 0 {
                         // remove cursor from current
-                        word.update_span_vec(false);
+                        state.words[state.word_i].update_span_vec(false);
                         // decrement to previous
                         state.word_i -= 1;
-                        word = &mut state.words[state.word_i];
                     }
                 }
                 // (ctrl|alt) + backspace -> delete entire word
@@ -215,22 +216,23 @@ impl ArstyperWidget for Test {
                     .iter()
                     .any(|m| m == KeyModifiers::CONTROL || m == KeyModifiers::ALT)
                 {
-                    word.presses.clear();
+                    state.words[state.word_i].presses.clear();
                 }
                 // just backspace
                 else {
-                    word.presses.pop();
+                    state.words[state.word_i].presses.pop();
                 }
             }
             _ => {}
         }
-        // update display
-        word.update_span_vec(true);
         // check for completion
         if state.word_i >= state.words.len() - 1 && state.words[state.words.len() - 1].is_typed() {
             self.tx
                 .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
                 .unwrap();
+        } else {
+            // update display
+            state.words[state.word_i].update_span_vec(true);
         }
     }
 }

@@ -2,7 +2,7 @@
 use crate::{
     sty,
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
-    ui::{Overlay, Screen, UiRequest},
+    ui::{Screen, UiRequest},
 };
 
 use ratatui::{
@@ -52,7 +52,7 @@ impl MenuOverlay {
 
 impl ArstyperOverlay for MenuOverlay {
     fn render_ref_overlay(&mut self, area: Rect, buf: &mut Buffer) {
-        use Constraint::{Length, Min, Percentage};
+        use Constraint::{Min, Percentage};
         let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
         let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
         let [_, v_a, _] = v.areas(area);

@@ -5,11 +5,13 @@ use crate::{
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{
         AppState, Overlay, Screen, UiRequest,
-        about::{About, AboutState},
         overlays::menu::MenuOverlay,
-        results::{Results, ResultsState},
-        stats::{Stats, StatsState},
-        test::{Test, TestState},
+        screens::{
+            about::{About, AboutState},
+            results::{Results, ResultsState},
+            stats::{Stats, StatsState},
+            test::{Test, TestState},
+        },
     },
 };
 
@@ -27,15 +29,15 @@ use std::{
 };
 
 /// Main UI widget
-pub struct Ui {}
+pub struct Main {}
 
-impl Ui {
+impl Main {
     pub fn new() -> Self {
         Self {}
     }
 
     /// 'tick' to update state/logic of ui
-    pub fn tick(&self, state: &mut UiState<'static>) -> io::Result<()> {
+    pub fn tick(&self, state: &mut MainState<'static>) -> io::Result<()> {
         self.handle_events(state)?;
 
         // non-event-driven state logic
@@ -64,7 +66,7 @@ impl Ui {
     }
 
     /// handle keyboard events
-    pub fn handle_events(&self, state: &mut UiState<'static>) -> io::Result<()> {
+    pub fn handle_events(&self, state: &mut MainState<'static>) -> io::Result<()> {
         // if poll(Duration::from_secs(1))?
         if let Event::Key(key) = event::read()? {
             let mut pass_from_global = true;
@@ -131,8 +133,8 @@ impl Ui {
     }
 }
 
-impl StatefulWidgetRef for Ui {
-    type State = UiState<'static>;
+impl StatefulWidgetRef for Main {
+    type State = MainState<'static>;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if area.width < 20 || area.height < 10 {
             Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
@@ -141,7 +143,7 @@ impl StatefulWidgetRef for Ui {
             return;
         }
 
-        use Constraint::{Length, Min, Percentage};
+        use Constraint::{Length, Min};
         let vertical = Layout::vertical([Min(0), Length(1), Length(1)]);
         let [body_a, mode_a, status_a] = vertical.areas(area);
 
@@ -166,15 +168,15 @@ impl StatefulWidgetRef for Ui {
     }
 }
 
-impl StatefulWidget for &Ui {
-    type State = UiState<'static>;
+impl StatefulWidget for &Main {
+    type State = MainState<'static>;
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.render_ref(area, buf, state);
     }
 }
 
 /// State of main UI and all subwidgets
-pub struct UiState<'a> {
+pub struct MainState<'a> {
     pub lang: Lang,
 
     pub state: AppState,
@@ -203,7 +205,7 @@ pub struct UiState<'a> {
     pub uireq_rx: Receiver<UiRequest>,
 }
 
-impl UiState<'_> {
+impl MainState<'_> {
     pub fn new() -> Result<Self, std::io::Error> {
         let lang = Lang::get_by_name(config_ref!(lang))?;
 
@@ -297,12 +299,9 @@ impl UiState<'_> {
     }
 
     pub fn add_overlay(&mut self, o: Overlay) -> io::Result<()> {
-        let mut s: Option<Box<dyn ArstyperOverlay>> = None;
-        match o {
-            Overlay::Menu => {
-                s = Some(Box::new(MenuOverlay::new(self.uireq_tx.clone())?));
-            }
-        }
+        let s: Option<Box<dyn ArstyperOverlay>> = Some(Box::new(match o {
+            Overlay::Menu => MenuOverlay::new(self.uireq_tx.clone())?,
+        }));
         unsafe {
             self.overlay_stack.push(s.unwrap_unchecked());
         }

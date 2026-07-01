@@ -9,7 +9,7 @@ use config::Config;
 use consts::Styles;
 use ui::{
     AppState,
-    ui::{Ui, UiState},
+    screens::main::{Main, MainState},
 };
 
 use ratatui::{
@@ -56,8 +56,8 @@ fn main() -> std::io::Result<()> {
     }
 
     // init ui
-    let mut ui_state = UiState::new().unwrap_or_else(err_disp!("UI Setup"));
-    let ui = Ui::new();
+    let mut ui_state = MainState::new().unwrap_or_else(err_disp!("UI Setup"));
+    let ui = Main::new();
 
     let mut terminal = ratatui::init();
 

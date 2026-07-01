@@ -1,11 +1,7 @@
 //! Root UI
-mod about;
 pub mod color_preview;
-mod overlays;
-mod results;
-mod stats;
-mod test;
-pub mod ui;
+pub mod overlays;
+pub mod screens;
 
 use strum::{Display, EnumIter, FromRepr};
 
