@@ -26,14 +26,21 @@ use ratatui::{
 use std::{
     io::{self},
     sync::mpsc::{Receiver, SyncSender, sync_channel},
+    time::{Duration, Instant},
 };
 
 /// Main UI widget
-pub struct Main {}
+pub struct Main {
+    tick_duration: Duration,
+}
 
 impl Main {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            tick_duration: Duration::from_micros(
+                (1.0 / config!(ui.framerate) * 1000.0 * 1000.0) as u64,
+            ),
+        }
     }
 
     /// 'tick' to update state/logic of ui
@@ -67,8 +74,18 @@ impl Main {
 
     /// handle keyboard events
     pub fn handle_events(&self, state: &mut MainState<'static>) -> io::Result<()> {
-        // if poll(Duration::from_secs(1))?
-        if let Event::Key(key) = event::read()? {
+        // determine length of max poll delay to not exceed framecap (note this is bad and doesn't regulate framerate well at all due to synchronous render and input)
+        let tick_start = Instant::now();
+        let dt = tick_start - state.last_tick;
+        let polltime: Duration = if dt >= self.tick_duration {
+            self.tick_duration
+        } else {
+            self.tick_duration + dt
+        };
+
+        if event::poll(polltime)?
+            && let Event::Key(key) = event::read()?
+        {
             let mut pass_from_global = true;
             if key.kind == KeyEventKind::Press {
                 // global keys
@@ -129,6 +146,7 @@ impl Main {
                 }
             }
         }
+        state.last_tick = tick_start;
         Ok(())
     }
 }
@@ -177,32 +195,36 @@ impl StatefulWidget for &Main {
 
 /// State of main UI and all subwidgets
 pub struct MainState<'a> {
-    pub lang: Lang,
+    lang: Lang,
 
     pub state: AppState,
-    pub screen: Screen,
-    pub last_screen: Screen,
-    pub overlay_stack: Vec<Box<dyn ArstyperOverlay>>,
+    screen: Screen,
+    last_screen: Screen,
+    overlay_stack: Vec<Box<dyn ArstyperOverlay>>,
 
-    pub test: Test,
-    pub test_state: TestState<'a>,
+    test: Test,
+    test_state: TestState<'a>,
 
-    pub stats: Stats,
-    pub stats_state: StatsState,
+    stats: Stats,
+    stats_state: StatsState,
 
-    pub results: Results,
-    pub results_state: ResultsState,
+    results: Results,
+    results_state: ResultsState,
 
-    pub about: About,
-    pub about_state: AboutState,
+    about: About,
+    about_state: AboutState,
 
-    pub status: String,
+    status: String,
+
     /// When the status message is to be cleared
-    pub clear_status_at: DateTime<Local>,
+    clear_status_at: DateTime<Local>,
+
+    /// Time last tick was triggered
+    last_tick: Instant,
 
     // communication between screens and stuff
-    pub uireq_tx: SyncSender<UiRequest>,
-    pub uireq_rx: Receiver<UiRequest>,
+    uireq_tx: SyncSender<UiRequest>,
+    uireq_rx: Receiver<UiRequest>,
 }
 
 impl MainState<'_> {
@@ -232,6 +254,8 @@ impl MainState<'_> {
             clear_status_at: Local::now() + TimeDelta::seconds(5),
 
             lang: lang,
+
+            last_tick: Instant::now(),
 
             uireq_tx: tx,
             uireq_rx: rx,

@@ -8,6 +8,7 @@ use std::{
     fs::{self, File},
     io::{self, Write},
     process,
+    time::Duration,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -114,6 +115,8 @@ pub struct UiCfg {
     pub show_clock: bool,
     /// 12 or 24 hour clock
     pub hour_24: bool,
+    /// Max FPS of TUI
+    pub framerate: f32,
 }
 
 impl Default for UiCfg {
@@ -121,6 +124,7 @@ impl Default for UiCfg {
         Self {
             show_clock: true,
             hour_24: true,
+            framerate: 10.0,
         }
     }
 }
