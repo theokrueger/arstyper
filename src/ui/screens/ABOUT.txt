@@ -37,11 +37,14 @@ Run 'arstyper --help-config' for additional config information
 
 * Custom Tests
 Test files are stored in one of the following locations:
-  Linux: ~/.local/share/arstyper/
-  MacOS: $HOME/Library/Application Support/arstyper/
-  Windows: %localappdata%/arstyper/
+  Linux: ~/.local/share/arstyper/tests/
+  MacOS: $HOME/Library/Application Support/arstyper/tests/
+  Windows: %localappdata%/arstyper/tests/
 
 Simply create a new file there based on the formatting of other tests. arstyper automatically detects languages in that folder.
+
+* Score Database
+TBD
 
 * Contribute
 Found a bug or want to contribute code? Go to:

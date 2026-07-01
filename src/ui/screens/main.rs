@@ -74,16 +74,7 @@ impl Main {
 
     /// handle keyboard events
     pub fn handle_events(&self, state: &mut MainState<'static>) -> io::Result<()> {
-        // determine length of max poll delay to not exceed framecap (note this is bad and doesn't regulate framerate well at all due to synchronous render and input)
-        let tick_start = Instant::now();
-        let dt = tick_start - state.last_tick;
-        let polltime: Duration = if dt >= self.tick_duration {
-            self.tick_duration
-        } else {
-            self.tick_duration + dt
-        };
-
-        if event::poll(polltime)?
+        if event::poll(self.tick_duration)?
             && let Event::Key(key) = event::read()?
         {
             let mut pass_from_global = true;
@@ -146,7 +137,6 @@ impl Main {
                 }
             }
         }
-        state.last_tick = tick_start;
         Ok(())
     }
 }
@@ -219,9 +209,6 @@ pub struct MainState<'a> {
     /// When the status message is to be cleared
     clear_status_at: DateTime<Local>,
 
-    /// Time last tick was triggered
-    last_tick: Instant,
-
     // communication between screens and stuff
     uireq_tx: SyncSender<UiRequest>,
     uireq_rx: Receiver<UiRequest>,
@@ -250,12 +237,14 @@ impl MainState<'_> {
             last_screen: Screen::default(),
             overlay_stack: Vec::new(),
 
-            status: "Welcome to arstyper! Press <F1> for help, or <Ctrl-C> to exit.".to_string(),
+            status: if config!(ui.show_welcome_message) {
+                "Welcome to arstyper! Press <F1> for help, or <Ctrl-C> to exit.".to_string()
+            } else {
+                "".to_string()
+            },
             clear_status_at: Local::now() + TimeDelta::seconds(5),
 
             lang: lang,
-
-            last_tick: Instant::now(),
 
             uireq_tx: tx,
             uireq_rx: rx,
@@ -288,7 +277,7 @@ impl MainState<'_> {
             let t = Local::now();
             format!(
                 "{:02}:{:02}",
-                if config!(ui.hour_24) {
+                if config!(locale.show_24_hour_time) {
                     t.hour()
                 } else {
                     t.hour12().1

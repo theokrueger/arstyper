@@ -28,7 +28,10 @@ impl Lang {
     /// wordN
     /// ```
     pub fn get_by_path(p: &PathBuf, name: &str) -> Result<Self, Error> {
-        let f = File::open(&p).or(Err(Error::new(ErrorKind::NotFound, format!("No such language '{name}'"))))?;
+        let f = File::open(&p).or(Err(Error::new(
+            ErrorKind::NotFound,
+            format!("No such language '{name}'"),
+        )))?;
 
         let buf = io::BufReader::new(f).lines().map_while(Result::ok);
         let mut s = Self {
@@ -53,7 +56,7 @@ impl Lang {
 
     /// Path to language dir.
     fn path() -> PathBuf {
-        dirs::data_local_dir().unwrap().join("arstyper")
+        dirs::data_local_dir().unwrap().join("arstyper/tests")
     }
 
     /// Get n word iterator of this language for tests

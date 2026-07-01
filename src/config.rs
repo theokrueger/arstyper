@@ -20,6 +20,7 @@ pub struct Config {
     pub theme: ThemeCfg,
     /// How many words to test for
     pub word_count: u32,
+    pub locale: LocCfg,
     pub ui: UiCfg,
 }
 
@@ -30,6 +31,7 @@ impl Default for Config {
             word_count: 50,
             theme: ThemeCfg::default(),
             ui: UiCfg::default(),
+            locale: LocCfg::default(),
         }
     }
 }
@@ -111,10 +113,10 @@ impl Default for ThemeCfg {
 #[serde(default)]
 /// Specific UI configuration to show or hide elements and change behaviours.
 pub struct UiCfg {
+    /// Show initial welcome message in the status buffer on startup
+    pub show_welcome_message: bool,
     /// Show clock in bottom right of modeline
     pub show_clock: bool,
-    /// 12 or 24 hour clock
-    pub hour_24: bool,
     /// Max FPS of TUI
     pub framerate: f32,
 }
@@ -122,9 +124,28 @@ pub struct UiCfg {
 impl Default for UiCfg {
     fn default() -> Self {
         Self {
+            show_welcome_message: true,
             show_clock: true,
-            hour_24: true,
             framerate: 10.0,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(default)]
+/// Locale configuration
+pub struct LocCfg {
+    /// 12 or 24 hour clock
+    pub show_24_hour_time: bool,
+    /// Use CPM instead of WPM when showing data
+    pub cpm_over_wpm: bool,
+}
+
+impl Default for LocCfg {
+    fn default() -> Self {
+        Self {
+            show_24_hour_time: true,
+            cpm_over_wpm: false,
         }
     }
 }

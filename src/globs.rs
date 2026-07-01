@@ -2,8 +2,19 @@
 //! therefore, it will always be memory safe even with unchecked unwraps
 
 use crate::config::Config;
+use crate::scoremanager::ScoreManager;
 use once_cell::sync::OnceCell;
 use ratatui::style::Style;
+
+/* SCOREMANAGER */
+pub static SCOREMANAGER: OnceCell<ScoreManager> = OnceCell::new();
+
+#[macro_export]
+macro_rules! score_manager {
+    () => {
+        unsafe { &crate::globs::CONFIG.get().unwrap_unchecked() }
+    };
+}
 
 /* CONFIG */
 pub static CONFIG: OnceCell<Config> = OnceCell::new();
@@ -11,14 +22,14 @@ pub static CONFIG: OnceCell<Config> = OnceCell::new();
 #[macro_export]
 macro_rules! config {
     ($name:ident$(.$field:ident)*) => {
-        unsafe { crate::consts::CONFIG.get().unwrap_unchecked().$name$(.$field)* }
+        unsafe { crate::globs::CONFIG.get().unwrap_unchecked().$name$(.$field)* }
     };
 }
 
 #[macro_export]
 macro_rules! config_ref {
     ($name:ident$(.$field:ident)*) => {
-        unsafe { &crate::consts::CONFIG.get().unwrap_unchecked().$name$(.$field)* }
+        unsafe { &crate::globs::CONFIG.get().unwrap_unchecked().$name$(.$field)* }
     };
 }
 
@@ -42,6 +53,6 @@ pub struct Styles {
 #[macro_export]
 macro_rules! sty {
     ($name:ident) => {
-        unsafe { crate::consts::STYLES.get().unwrap_unchecked().$name }
+        unsafe { crate::globs::STYLES.get().unwrap_unchecked().$name }
     };
 }

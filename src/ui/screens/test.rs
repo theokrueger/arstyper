@@ -1,5 +1,6 @@
 //! Typing test struct
 use crate::{
+    scoremanager::{Keypress, ScoreWord},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
@@ -14,22 +15,6 @@ use ratatui::{
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
 use std::{io, sync::mpsc::SyncSender, time::Instant};
-
-/// A single keypress
-struct Keypress {
-    key: char,
-    time: Instant,
-}
-
-impl Keypress {
-    /// Create keypress from char with current time as instant
-    fn from_chr(key: char) -> Self {
-        Self {
-            key: key,
-            time: Instant::now(),
-        }
-    }
-}
 
 /// A single test word and its keypresses.
 struct TestWord<'a> {
@@ -227,6 +212,10 @@ impl ArstyperWidget for Test {
         }
         // check for completion
         if state.word_i >= state.words.len() - 1 && state.words[state.words.len() - 1].is_typed() {
+            // map to scorewords
+            // TODO
+
+            // change screen
             self.tx
                 .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
                 .unwrap();

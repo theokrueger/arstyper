@@ -1,12 +1,14 @@
 //! arstyper
 mod config;
-mod consts;
+mod globs;
 mod lang;
+mod scoremanager;
 mod traits;
 mod ui;
 
 use config::Config;
-use consts::Styles;
+use globs::Styles;
+use scoremanager::ScoreManager;
 use ui::{
     AppState,
     screens::main::{Main, MainState},
@@ -50,9 +52,13 @@ fn main() -> std::io::Result<()> {
         incorrect: root_sty.fg(cfg.theme.incorrect_text),
         cursor: root_sty.bg(cfg.theme.accent),
     };
+
+    let scoremanager = ScoreManager::new(&cfg);
+
     unsafe {
-        consts::CONFIG.set(cfg).unwrap_unchecked();
-        consts::STYLES.set(styles).unwrap_unchecked();
+        globs::CONFIG.set(cfg).unwrap_unchecked();
+        globs::STYLES.set(styles).unwrap_unchecked();
+        globs::SCOREMANAGER.set(scoremanager).unwrap_unchecked();
     }
 
     // init ui
