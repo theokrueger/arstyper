@@ -5,6 +5,7 @@ mod lang;
 mod scoremanager;
 mod traits;
 mod ui;
+mod util;
 
 use config::Config;
 use globs::Styles;

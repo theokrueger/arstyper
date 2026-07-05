@@ -6,13 +6,21 @@ use crate::scoremanager::ScoreManager;
 use once_cell::sync::OnceCell;
 use ratatui::style::Style;
 
+pub struct Globs {
+    scoremgr: ScoreManager,
+    cfg: Config,
+    sty: Styles,
+}
+
+pub static GLOBS: OnceCell<Globs> = OnceCell::new();
+
 /* SCOREMANAGER */
 pub static SCOREMANAGER: OnceCell<ScoreManager> = OnceCell::new();
 
 #[macro_export]
-macro_rules! score_manager {
+macro_rules! scoremanager {
     () => {
-        unsafe { &crate::globs::CONFIG.get().unwrap_unchecked() }
+        unsafe { crate::globs::SCOREMANAGER.get().unwrap_unchecked() }
     };
 }
 

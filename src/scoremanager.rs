@@ -1,19 +1,20 @@
 //! Create and manage new scores, score database, and perform analyses.
-use crate::config;
-use crate::config::Config;
+use crate::{config, config::Config, util};
 
 use chrono::{DateTime, Local, TimeDelta, Timelike, Utc};
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::{self, BufRead, Error, ErrorKind},
     path::PathBuf,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 /// A single keypress
 pub struct Keypress {
     pub key: char,
     pub time: Instant,
+    pub ignore: bool,
 }
 
 impl Keypress {
@@ -22,20 +23,31 @@ impl Keypress {
         Self {
             key: key,
             time: Instant::now(),
+            ignore: false,
         }
     }
 }
 
 /// A score word as series of presses
 pub struct ScoreWord {
-    word: String,
-    presses: Vec<Keypress>,
+    pub word: String,
+    pub presses: Vec<Keypress>,
 }
 
-//#[derive(Serialize, Deserialize)]
+impl From<String> for ScoreWord {
+    fn from(string: String) -> Self {
+        Self {
+            word: string,
+            presses: Vec::new(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
 /// Test statistics derived from raw data
 pub struct Score {
-    completed: DateTime<Utc>,
+    words: u32,
+    completed: u64,
     chars: u32,
     correct_strokes: u32,
     incorrect_strokes: u32,
@@ -58,6 +70,63 @@ impl Score {
     }
 }
 
+impl From<Vec<ScoreWord>> for Score {
+    /// Completed field is at time of conversion
+    fn from(sws: Vec<ScoreWord>) -> Self {
+        let mut correct_strokes = 0;
+        let mut incorrect_strokes = 0;
+        let mut chars = 0;
+
+        // count stats
+        for sw in &sws {
+            chars += sw.word.len() + 1 // +1 for space
+        }
+
+        // head/tail operations
+        let mut duration = unsafe {
+            let start = sws
+                .first()
+                .unwrap_unchecked()
+                .presses
+                .first()
+                .unwrap_unchecked()
+                .time;
+            let end = sws
+                .last()
+                .unwrap_unchecked()
+                .presses
+                .last()
+                .unwrap_unchecked()
+                .time;
+            end - start
+        };
+
+        // correct the number of chars depending on if the user typed a space
+        unsafe {
+            if sws
+                .last()
+                .unwrap_unchecked()
+                .presses
+                .last()
+                .unwrap_unchecked()
+                .key
+                != ' '
+            {
+                chars -= 1;
+            }
+        }
+
+        Self {
+            words: sws.len() as u32,
+            chars: chars as u32,
+            correct_strokes,
+            incorrect_strokes,
+            completed: util::timestamp_s(),
+            duration,
+        }
+    }
+}
+
 pub struct ScoreManager {}
 
 impl ScoreManager {
@@ -69,8 +138,13 @@ impl ScoreManager {
         dirs::data_local_dir().unwrap().join("arstyper/scores")
     }
 
-    pub fn save(score: Score) -> Result<(), Error> {
-        let p = &Self::path().join(score.completed.to_string());
+    pub fn save_score_from_scorewords(&mut self, sws: Vec<ScoreWord>) -> Result<(), Error> {
+        let score = Score::from(sws);
+        self.save_score(score)
+    }
+
+    fn save_score(&mut self, score: Score) -> Result<(), Error> {
+        //let p = &Self::path().join(score.completed.to_string());
         // let f = File::create(&p).or(Err(Error::new(
         //     ErrorKind::NotFound,
         //     format!("Unable to create file '{p}'"),

@@ -1,5 +1,6 @@
 //! Typing test struct
 use crate::{
+    scoremanager,
     scoremanager::{Keypress, ScoreWord},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
@@ -17,10 +18,8 @@ use ratatui::{
 use std::{io, sync::mpsc::SyncSender, time::Instant};
 
 /// A single test word and its keypresses.
-struct TestWord<'a> {
-    word: String,
-    /// Series of keypressed used to build `spans`
-    presses: Vec<Keypress>,
+pub struct TestWord<'a> {
+    sw: ScoreWord,
     /// Spans that compose this typed word
     spans: Vec<Span<'a>>,
 }
@@ -32,8 +31,12 @@ impl TestWord<'_> {
         let mut typed = String::new();
         self.spans.clear();
 
-        let mut t_i = self.word.chars();
-        let mut p_i = self.presses.iter().map(|x| x.key);
+        let mut t_i = self.sw.word.chars();
+        let mut p_i = self
+            .sw
+            .presses
+            .iter()
+            .filter_map(|x| if x.ignore { None } else { Some(x.key) });
 
         // check presses
         while let Some(p) = p_i.next()
@@ -103,10 +106,12 @@ impl TestWord<'_> {
             ));
         }
     }
+}
+
+impl From<String> for TestWord<'_> {
     fn from(string: String) -> Self {
         let mut tw = Self {
-            presses: Vec::with_capacity(string.len()),
-            word: string,
+            sw: string.into(),
             spans: Vec::new(),
         };
 
@@ -119,22 +124,36 @@ impl TestWord<'_> {
     /// Is the word fully and correctly typed
     fn is_correct(&self) -> bool {
         return self
+            .sw
             .presses
             .iter()
-            .filter_map(|x| if x.key == ' ' { None } else { Some(x.key) })
+            .filter_map(|x| {
+                if x.key == ' ' || x.ignore {
+                    None
+                } else {
+                    Some(x.key)
+                }
+            })
             .collect::<String>()
-            == self.word;
+            == self.sw.word;
     }
 
     /// Does the word end in a space (has been typed, incorrectly or correctly)
     fn is_typed(&self) -> bool {
-        if let Some(lp) = self.presses.last()
+        if let Some(lp) = self.sw.presses.last()
+            && !lp.ignore
             && lp.key == ' '
         {
             true
         } else {
             self.is_correct()
         }
+    }
+}
+
+impl Into<ScoreWord> for TestWord<'_> {
+    fn into(self) -> ScoreWord {
+        self.sw
     }
 }
 
@@ -170,6 +189,7 @@ impl ArstyperWidget for Test {
             KeyCode::Char(' ') => {
                 // remove cursor from current
                 state.words[state.word_i]
+                    .sw
                     .presses
                     .push(Keypress::from_chr(' '));
                 state.words[state.word_i].update_span_vec(false);
@@ -178,22 +198,24 @@ impl ArstyperWidget for Test {
             }
             KeyCode::Char(chr) => {
                 state.words[state.word_i]
+                    .sw
                     .presses
                     .push(Keypress::from_chr(chr));
             }
-            KeyCode::Tab => self
-                .tx
-                .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
-                .unwrap(),
+            KeyCode::Tab => self.end_test(state),
             KeyCode::Backspace => {
                 // should go to previous word?
-                if state.words[state.word_i].presses.len() == 0 {
-                    if state.word_i != 0 {
-                        // remove cursor from current
-                        state.words[state.word_i].update_span_vec(false);
-                        // decrement to previous
-                        state.word_i -= 1;
-                    }
+                if state.words[state.word_i]
+                    .sw
+                    .presses
+                    .iter()
+                    .all(|x| x.ignore)
+                    && state.word_i != 0
+                {
+                    // remove cursor from current
+                    state.words[state.word_i].update_span_vec(false);
+                    // decrement to previous
+                    state.word_i -= 1;
                 }
                 // (ctrl|alt) + backspace -> delete entire word
                 if key
@@ -201,24 +223,28 @@ impl ArstyperWidget for Test {
                     .iter()
                     .any(|m| m == KeyModifiers::CONTROL || m == KeyModifiers::ALT)
                 {
-                    state.words[state.word_i].presses.clear();
+                    for kp in &mut state.words[state.word_i].sw.presses {
+                        kp.ignore = true;
+                    }
                 }
                 // just backspace
                 else {
-                    state.words[state.word_i].presses.pop();
+                    if let Some(last) = state.words[state.word_i]
+                        .sw
+                        .presses
+                        .iter_mut()
+                        .rev()
+                        .find(|x| !x.ignore)
+                    {
+                        last.ignore = true;
+                    }
                 }
             }
             _ => {}
         }
         // check for completion
         if state.word_i >= state.words.len() - 1 && state.words[state.words.len() - 1].is_typed() {
-            // map to scorewords
-            // TODO
-
-            // change screen
-            self.tx
-                .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
-                .unwrap();
+            self.end_test(state);
         } else {
             // update display
             state.words[state.word_i].update_span_vec(true);
@@ -229,7 +255,6 @@ impl ArstyperWidget for Test {
 impl StatefulWidgetRef for Test {
     type State = TestState<'static>;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let _word_i = state.word_i;
         Paragraph::new(Line::from(
             state
                 .words
@@ -251,6 +276,16 @@ impl StatefulWidgetRef for Test {
     }
 }
 
+impl Test {
+    fn end_test(&mut self, state: &mut TestState) {
+        state.save_and_clear();
+        // change screen
+        self.tx
+            .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
+            .unwrap();
+    }
+}
+
 impl TestState<'_> {
     /// Set title
     pub fn set_title(&mut self, title: String) {
@@ -264,5 +299,16 @@ impl TestState<'_> {
             .collect::<Vec<TestWord>>();
         self.word_i = 0;
         self.words[0].update_span_vec(true);
+    }
+
+    /// Save this to the scoremanager
+    fn save_and_clear(&mut self) {
+        self.word_i = 0;
+        // scoremanager!().save_score_from_scorewords(
+        //     std::mem::take(&mut self.words)
+        //         .into_iter()
+        //         .map(|x| x.into())
+        //         .collect(),
+        // );
     }
 }
