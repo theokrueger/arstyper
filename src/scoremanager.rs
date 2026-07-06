@@ -14,16 +14,18 @@ use std::{
 pub struct Keypress {
     pub key: char,
     pub time: Instant,
+    pub correct: bool,
     pub ignore: bool,
 }
 
 impl Keypress {
     /// Create keypress from char with current time as instant
-    pub fn from_chr(key: char) -> Self {
+    pub fn from_chr(key: char, correct: bool) -> Self {
         Self {
             key: key,
             time: Instant::now(),
             ignore: false,
+            correct,
         }
     }
 }
@@ -43,7 +45,7 @@ impl From<String> for ScoreWord {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 /// Test statistics derived from raw data
 pub struct Score {
     words: u32,
@@ -79,7 +81,14 @@ impl From<Vec<ScoreWord>> for Score {
 
         // count stats
         for sw in &sws {
-            chars += sw.word.len() + 1 // +1 for space
+            chars += sw.word.len() + 1; // +1 for space
+            for kp in sw.presses.iter() {
+                if kp.correct {
+                    correct_strokes += 1;
+                } else {
+                    incorrect_strokes += 1;
+                }
+            }
         }
 
         // head/tail operations
@@ -138,18 +147,13 @@ impl ScoreManager {
         dirs::data_local_dir().unwrap().join("arstyper/scores")
     }
 
-    pub fn save_score_from_scorewords(&mut self, sws: Vec<ScoreWord>) -> Result<(), Error> {
-        let score = Score::from(sws);
-        self.save_score(score)
-    }
-
-    fn save_score(&mut self, score: Score) -> Result<(), Error> {
-        //let p = &Self::path().join(score.completed.to_string());
-        // let f = File::create(&p).or(Err(Error::new(
-        //     ErrorKind::NotFound,
-        //     format!("Unable to create file '{p}'"),
-        // )))?;
-        // let buf
+    pub fn save_score(&mut self, score: Score) -> Result<(), Error> {
+        let p = &Self::path().join(format!("{}.json", score.completed.to_string()));
+        let f = File::create(&p).or(Err(Error::new(
+            ErrorKind::NotFound,
+            format!("Unable to create file '{}'", p.display()),
+        )))?;
+        println!("{:?}", score);
         Ok(())
     }
 }

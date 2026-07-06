@@ -1,6 +1,7 @@
 use crate::{
-    config, config_ref,
+    config, globs, globs_ref,
     lang::Lang,
+    scoremanager::ScoreManager,
     sty,
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{
@@ -216,7 +217,7 @@ pub struct MainState<'a> {
 
 impl MainState<'_> {
     pub fn new() -> Result<Self, std::io::Error> {
-        let lang = Lang::get_by_name(config_ref!(lang))?;
+        let lang = Lang::get_by_name(globs_ref!(cfg.lang))?;
 
         let (tx, rx) = sync_channel::<UiRequest>(5);
         let mut ret = Self {

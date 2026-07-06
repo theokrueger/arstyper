@@ -1,7 +1,7 @@
 //! Typing test struct
 use crate::{
-    scoremanager,
-    scoremanager::{Keypress, ScoreWord},
+    globs, globs_apply, globs_ref,
+    scoremanager::{Keypress, Score, ScoreManager, ScoreWord},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
@@ -22,6 +22,8 @@ pub struct TestWord<'a> {
     sw: ScoreWord,
     /// Spans that compose this typed word
     spans: Vec<Span<'a>>,
+    /// How many nonignored characters have been typed.
+    cursor: usize,
 }
 
 impl TestWord<'_> {
@@ -31,24 +33,21 @@ impl TestWord<'_> {
         let mut typed = String::new();
         self.spans.clear();
 
-        let mut t_i = self.sw.word.chars();
         let mut p_i = self
             .sw
             .presses
             .iter()
-            .filter_map(|x| if x.ignore { None } else { Some(x.key) });
+            .filter_map(|x| if x.ignore { None } else { Some(x) });
 
         // check presses
         while let Some(p) = p_i.next()
-            && p != ' '
+            && p.key != ' '
         {
-            if let Some(t) = t_i.next()
-                && p == t
-            {
+            if p.correct {
                 // typed correctly
                 if state {
                     // prev was correct as well
-                    typed.push(p);
+                    typed.push(p.key);
                 } else {
                     // push incorrects
                     self.spans.push(Span::styled(typed, sty!(incorrect)));
@@ -56,13 +55,13 @@ impl TestWord<'_> {
                     state = !state;
                     typed = String::new();
                     // add correct
-                    typed.push(p);
+                    typed.push(p.key);
                 }
             } else {
                 // typed incorrectly
                 if !state {
                     // prev was incorrect as well
-                    typed.push(p);
+                    typed.push(p.key);
                 } else {
                     // push corrects
                     self.spans.push(Span::styled(typed, sty!(typed)));
@@ -70,7 +69,7 @@ impl TestWord<'_> {
                     state = !state;
                     typed = String::new();
                     // add incorrect
-                    typed.push(p);
+                    typed.push(p.key);
                 }
             }
         }
@@ -81,7 +80,8 @@ impl TestWord<'_> {
         ));
 
         // fill remaining word
-        if let Some(c) = t_i.next() {
+        let mut c_i = self.sw.word.chars().skip(self.cursor);
+        if let Some(c) = c_i.next() {
             let s = c.to_string();
             self.spans.push(Span::styled(
                 s,
@@ -92,7 +92,7 @@ impl TestWord<'_> {
                 },
             ));
 
-            typed = t_i.collect();
+            typed = c_i.collect();
             typed.push(' ');
             self.spans.push(Span::styled(typed, sty!(untyped)));
         } else {
@@ -113,6 +113,7 @@ impl From<String> for TestWord<'_> {
         let mut tw = Self {
             sw: string.into(),
             spans: Vec::new(),
+            cursor: 0,
         };
 
         tw.update_span_vec(false);
@@ -187,30 +188,30 @@ impl ArstyperWidget for Test {
     fn handle_events(&mut self, key: KeyEvent, state: &mut TestState) {
         match key.code {
             KeyCode::Char(' ') => {
+                let word = &mut state.words[state.word_i];
                 // remove cursor from current
-                state.words[state.word_i]
-                    .sw
-                    .presses
-                    .push(Keypress::from_chr(' '));
-                state.words[state.word_i].update_span_vec(false);
+                word.sw.presses.push(Keypress::from_chr(' ', true));
+                word.update_span_vec(false);
+                word.cursor += 1;
                 // increment to next when applicable
                 state.word_i += 1;
             }
             KeyCode::Char(chr) => {
-                state.words[state.word_i]
-                    .sw
-                    .presses
-                    .push(Keypress::from_chr(chr));
+                let word = &mut state.words[state.word_i];
+                let correct = word.sw.word.chars().nth(word.cursor).unwrap() == chr;
+                word.sw.presses.push(Keypress::from_chr(chr, correct));
+                word.cursor += correct as usize;
             }
             KeyCode::Tab => self.end_test(state),
             KeyCode::Backspace => {
                 // should go to previous word?
-                if state.words[state.word_i]
-                    .sw
-                    .presses
-                    .iter()
-                    .all(|x| x.ignore)
-                    && state.word_i != 0
+                if state.word_i != 0
+                    && !state.words[state.word_i]
+                        .sw
+                        .presses
+                        .iter()
+                        .rev()
+                        .any(|x| !x.ignore)
                 {
                     // remove cursor from current
                     state.words[state.word_i].update_span_vec(false);
@@ -226,18 +227,16 @@ impl ArstyperWidget for Test {
                     for kp in &mut state.words[state.word_i].sw.presses {
                         kp.ignore = true;
                     }
+                    state.words[state.word_i].cursor = 0;
                 }
                 // just backspace
                 else {
-                    if let Some(last) = state.words[state.word_i]
-                        .sw
-                        .presses
-                        .iter_mut()
-                        .rev()
-                        .find(|x| !x.ignore)
-                    {
-                        last.ignore = true;
+                    let lw = &mut state.words[state.word_i];
+                    if let Some(lp) = lw.sw.presses.iter_mut().rev().find(|x| !x.ignore) {
+                        lw.cursor -= lp.correct as usize;
+                        lp.ignore = true;
                     }
+                    // else case would be on first word only
                 }
             }
             _ => {}
@@ -278,8 +277,7 @@ impl StatefulWidgetRef for Test {
 
 impl Test {
     fn end_test(&mut self, state: &mut TestState) {
-        state.save_and_clear();
-        // change screen
+        state.finish();
         self.tx
             .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
             .unwrap();
@@ -301,14 +299,18 @@ impl TestState<'_> {
         self.words[0].update_span_vec(true);
     }
 
-    /// Save this to the scoremanager
-    fn save_and_clear(&mut self) {
+    /// Clear data and create and submit score from test
+    fn finish(&mut self) {
         self.word_i = 0;
-        // scoremanager!().save_score_from_scorewords(
-        //     std::mem::take(&mut self.words)
-        //         .into_iter()
-        //         .map(|x| x.into())
-        //         .collect(),
-        // );
+
+        globs_apply!(scoremgr, |x: &mut ScoreManager| {
+            x.save_score(Score::from(
+                std::mem::take(&mut self.words)
+                    .into_iter()
+                    .map(|x| -> ScoreWord { x.into() })
+                    .collect::<Vec<ScoreWord>>(),
+            ))
+            .unwrap();
+        });
     }
 }

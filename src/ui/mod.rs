@@ -3,6 +3,8 @@ pub mod color_preview;
 pub mod overlays;
 pub mod screens;
 
+use crate::scoremanager::Score;
+
 use strum::{Display, EnumIter, FromRepr};
 
 #[derive(Default, PartialEq)]

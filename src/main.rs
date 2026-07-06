@@ -8,7 +8,7 @@ mod ui;
 mod util;
 
 use config::Config;
-use globs::Styles;
+use globs::{Globs, Styles};
 use scoremanager::ScoreManager;
 use ui::{
     AppState,
@@ -24,7 +24,7 @@ use ratatui::{
     },
     style::{Modifier, Style},
 };
-use std::io::stdout;
+use std::{cell::Cell, io::stdout, sync::Mutex};
 
 macro_rules! err_disp {
     ($name:literal) => {
@@ -41,7 +41,7 @@ fn main() -> std::io::Result<()> {
     let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
     let accent_sty = root_sty.fg(cfg.theme.accent);
     let modeline_sty = root_sty.bg(cfg.theme.accent);
-    let styles = Styles {
+    let sty = Styles {
         root: root_sty,
         root_inv: root_sty.add_modifier(Modifier::REVERSED),
         modeline_inv: modeline_sty.add_modifier(Modifier::REVERSED),
@@ -53,13 +53,12 @@ fn main() -> std::io::Result<()> {
         incorrect: root_sty.fg(cfg.theme.incorrect_text),
         cursor: root_sty.bg(cfg.theme.accent),
     };
-
-    let scoremanager = ScoreManager::new(&cfg);
+    let scoremgr = Mutex::new(ScoreManager::new(&cfg));
 
     unsafe {
-        globs::CONFIG.set(cfg).unwrap_unchecked();
-        globs::STYLES.set(styles).unwrap_unchecked();
-        globs::SCOREMANAGER.set(scoremanager).unwrap_unchecked();
+        globs::GLOBS
+            .set(Globs { scoremgr, cfg, sty })
+            .unwrap_unchecked();
     }
 
     // init ui
