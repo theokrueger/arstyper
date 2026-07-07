@@ -58,6 +58,7 @@ impl Main {
         while let Ok(msg) = state.uireq_rx.try_recv() {
             match msg {
                 UiRequest::Empty => {}
+                UiRequest::UpdateResults => state.results_state.update(),
                 UiRequest::Exit => state.state = AppState::Stopped,
                 UiRequest::ChangeScreen(s) => state.change_screen(s),
                 UiRequest::ClearStatus => state.clear_status(),

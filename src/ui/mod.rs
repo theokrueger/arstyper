@@ -53,6 +53,8 @@ pub enum UiRequest {
     RemoveOverlay,
     /// Discard current test and create a new one using current settings
     NewTest,
+    /// Update score in Results from ScoreManager
+    UpdateResults,
     //// Set the statusbar to this message. Will overwrite any existing message
     //DisplayStatus(String, DateTime<Local>),
 }

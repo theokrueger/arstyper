@@ -1,6 +1,6 @@
 //! Results screen
 use crate::{
-    sty,
+    ScoreManager, globs, globs_apply, globs_ref, sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
 };
@@ -13,17 +13,64 @@ use ratatui::{
         Layout, Rect,
     },
     style::Stylize,
-    text::Line,
+    text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
 use std::{io, sync::mpsc::SyncSender};
 
+#[derive(Default)]
 /// Results state
-pub struct ResultsState {}
+pub struct ResultsState {
+    speed: f32,
+    last_speed: f32,
+    raw_speed: f32,
+    last_raw_speed: f32,
+    acc: f32,
+    last_acc: f32,
+    show_diff: bool,
+}
 
 impl ArstyperWidgetState for ResultsState {
     fn new() -> io::Result<Self> {
-        Ok(Self {})
+        let mut s = Self::default();
+        s.update();
+        Ok(s)
+    }
+}
+
+impl ResultsState {
+    /// Update state from scoremanager data
+    pub fn update(&mut self) {
+        self.last_speed = self.speed;
+        self.last_raw_speed = self.raw_speed;
+        self.last_acc = self.acc;
+
+        globs_apply!(scoremgr, |x: &ScoreManager| {
+            self.speed = x.score.speed(false);
+            self.raw_speed = x.score.speed(true);
+            self.acc = x.score.accuracy();
+        });
+    }
+
+    /// Speed as WPM/CPM
+    fn speed_span(&self, raw: bool) -> Span {
+        let unit = if globs!(cfg.locale.cpm_over_wpm) {
+            "CPM"
+        } else {
+            "WPM"
+        };
+        Span::styled(
+            format!(
+                "{:.02} {unit}",
+                if raw { self.raw_speed } else { self.speed }
+            ),
+            sty!(root),
+        )
+    }
+
+    /// Accuracy
+    fn acc_span(&self) -> Span {
+        Span::styled(format!("{:2.02}%", self.acc), sty!(root))
     }
 }
 
@@ -52,7 +99,7 @@ impl ArstyperWidget for Results {
 
 impl StatefulWidgetRef for Results {
     type State = ResultsState;
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let [text_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(area);
 
         // body text
@@ -61,10 +108,14 @@ impl StatefulWidgetRef for Results {
             .style(sty!(accent))
             .title("Results & Analysis".bold())
             .padding(Padding::horizontal(1));
-        let p = Paragraph::new("results go here")
-            .style(sty!(root))
-            .wrap(Wrap { trim: false })
-            .block(b);
+        let p = Paragraph::new(Line::from(vec![
+            state.speed_span(false),
+            state.speed_span(true),
+            state.acc_span(),
+        ]))
+        .style(sty!(root))
+        .wrap(Wrap { trim: false })
+        .block(b);
 
         p.render(text_a, buf);
 

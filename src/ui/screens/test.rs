@@ -15,7 +15,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{io, sync::mpsc::SyncSender, time::Instant};
+use std::{io, rc::Rc, sync::mpsc::SyncSender, time::Instant};
 
 /// A single test word and its keypresses.
 pub struct TestWord<'a> {
@@ -198,11 +198,14 @@ impl ArstyperWidget for Test {
             }
             KeyCode::Char(chr) => {
                 let word = &mut state.words[state.word_i];
-                let correct = word.sw.word.chars().nth(word.cursor).unwrap() == chr;
+                let correct = word.sw.word.chars().nth(word.cursor).unwrap_or(' ') == chr;
                 word.sw.presses.push(Keypress::from_chr(chr, correct));
                 word.cursor += correct as usize;
             }
-            KeyCode::Tab => self.end_test(state),
+            KeyCode::Tab => {
+                self.end_test(state);
+                return;
+            }
             KeyCode::Backspace => {
                 // should go to previous word?
                 if state.word_i != 0
@@ -244,10 +247,11 @@ impl ArstyperWidget for Test {
         // check for completion
         if state.word_i >= state.words.len() - 1 && state.words[state.words.len() - 1].is_typed() {
             self.end_test(state);
-        } else {
-            // update display
-            state.words[state.word_i].update_span_vec(true);
+            return;
         }
+
+        // update display
+        state.words[state.word_i].update_span_vec(true);
     }
 }
 
@@ -277,7 +281,13 @@ impl StatefulWidgetRef for Test {
 
 impl Test {
     fn end_test(&mut self, state: &mut TestState) {
-        state.finish();
+        let score = state.finish();
+
+        globs_apply!(scoremgr, |x: &mut ScoreManager| {
+            x.save_score(score).unwrap();
+        });
+
+        self.tx.send(UiRequest::UpdateResults);
         self.tx
             .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
             .unwrap();
@@ -299,18 +309,14 @@ impl TestState<'_> {
         self.words[0].update_span_vec(true);
     }
 
-    /// Clear data and create and submit score from test
-    fn finish(&mut self) {
+    /// Clear data and create score from test
+    fn finish(&mut self) -> Score {
         self.word_i = 0;
-
-        globs_apply!(scoremgr, |x: &mut ScoreManager| {
-            x.save_score(Score::from(
-                std::mem::take(&mut self.words)
-                    .into_iter()
-                    .map(|x| -> ScoreWord { x.into() })
-                    .collect::<Vec<ScoreWord>>(),
-            ))
-            .unwrap();
-        });
+        Score::from(
+            std::mem::take(&mut self.words)
+                .into_iter()
+                .map(|x| -> ScoreWord { x.into() })
+                .collect::<Vec<ScoreWord>>(),
+        )
     }
 }

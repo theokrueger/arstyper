@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
         incorrect: root_sty.fg(cfg.theme.incorrect_text),
         cursor: root_sty.bg(cfg.theme.accent),
     };
-    let scoremgr = Mutex::new(ScoreManager::new(&cfg));
+    let scoremgr = Mutex::new(ScoreManager::new(&cfg)?);
 
     unsafe {
         globs::GLOBS
