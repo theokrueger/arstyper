@@ -1,7 +1,6 @@
 use crate::{
-    config, globs, globs_ref,
+    config, globs_ref,
     lang::Lang,
-    scoremanager::ScoreManager,
     sty,
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{
@@ -27,7 +26,7 @@ use ratatui::{
 use std::{
     io::{self},
     sync::mpsc::{Receiver, SyncSender, sync_channel},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 /// Main UI widget
@@ -98,8 +97,9 @@ impl Main {
                     KeyCode::Esc => {
                         if state.overlay_stack.len() <= 0 {
                             state
-                                .overlay_stack
-                                .push(Box::new(MenuOverlay::new(state.uireq_tx.clone())?));
+                                .uireq_tx
+                                .send(UiRequest::AddOverlay(Overlay::Menu))
+                                .unwrap();
                         } else {
                             unsafe {
                                 state.overlay_stack.pop().unwrap_unchecked();

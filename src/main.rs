@@ -24,7 +24,7 @@ use ratatui::{
     },
     style::{Modifier, Style},
 };
-use std::{cell::Cell, io::stdout, sync::Mutex};
+use std::{io::stdout, sync::Mutex};
 
 macro_rules! err_disp {
     ($name:literal) => {

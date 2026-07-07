@@ -8,7 +8,6 @@ use std::{
     fs::{self, File},
     io::{self, Write},
     process,
-    time::Duration,
 };
 
 #[derive(Deserialize, Serialize)]

@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::scoremanager::ScoreManager;
 use once_cell::sync::OnceCell;
 use ratatui::style::Style;
-use std::{ops::DerefMut, sync::Mutex};
+use std::sync::Mutex;
 
 pub struct Globs {
     // mutable

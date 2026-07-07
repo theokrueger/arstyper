@@ -1,6 +1,6 @@
 //! Typing test struct
 use crate::{
-    globs, globs_apply, globs_ref,
+    globs_apply,
     scoremanager::{Keypress, Score, ScoreManager, ScoreWord},
     sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
@@ -15,7 +15,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{io, rc::Rc, sync::mpsc::SyncSender, time::Instant};
+use std::{io, sync::mpsc::SyncSender};
 
 /// A single test word and its keypresses.
 pub struct TestWord<'a> {
@@ -287,7 +287,7 @@ impl Test {
             x.save_score(score).unwrap();
         });
 
-        self.tx.send(UiRequest::UpdateResults);
+        self.tx.send(UiRequest::UpdateResults).unwrap();
         self.tx
             .send(UiRequest::ChangeScreen(Screen::ResultsScreen))
             .unwrap();

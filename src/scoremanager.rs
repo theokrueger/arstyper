@@ -1,13 +1,12 @@
 //! Create and manage new scores, score database, and perform analyses.
-use crate::{config, config::Config, globs, globs_ref, util};
+use crate::{config::Config, globs, globs_ref, util};
 
-use chrono::{DateTime, Local, TimeDelta, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
-    io::{self, BufRead, Error, ErrorKind, Write},
+    io::{Error, ErrorKind, Write},
     path::PathBuf,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, Instant},
 };
 
 /// A single keypress
@@ -138,7 +137,7 @@ pub struct ScoreManager {
 }
 
 impl ScoreManager {
-    pub fn new(cfg: &Config) -> Result<Self, Error> {
+    pub fn new(_cfg: &Config) -> Result<Self, Error> {
         fs::create_dir_all(Self::path())?;
 
         Ok(Self {

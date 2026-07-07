@@ -1,6 +1,6 @@
 //! Results screen
 use crate::{
-    ScoreManager, globs, globs_apply, globs_ref, sty,
+    ScoreManager, globs, globs_apply, sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
 };
@@ -53,7 +53,7 @@ impl ResultsState {
     }
 
     /// Speed as WPM/CPM
-    fn speed_span(&self, raw: bool) -> Span {
+    fn speed_span(&self, raw: bool) -> Span<'_> {
         let unit = if globs!(cfg.locale.cpm_over_wpm) {
             "CPM"
         } else {
@@ -69,7 +69,7 @@ impl ResultsState {
     }
 
     /// Accuracy
-    fn acc_span(&self) -> Span {
+    fn acc_span(&self) -> Span<'_> {
         Span::styled(format!("{:2.02}%", self.acc), sty!(root))
     }
 }
