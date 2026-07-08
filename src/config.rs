@@ -1,7 +1,7 @@
 //! TOML configuration and CLI arguments
 use crate::lang::Lang;
 use crate::ui::color_preview::ColorPreview;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -153,21 +153,29 @@ impl Default for LocCfg {
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// List available languages
-    #[arg(long)]
-    list: bool,
     /// Select language
     #[arg(short, long)]
     lang: Option<String>,
     /// Specify test word count
     #[arg(short, long)]
     words: Option<u32>,
+
+    #[command(subcommand)]
+    /// Mode to run
+    verb: Option<Verb>,
+}
+
+#[derive(Subcommand, Default)]
+pub enum Verb {
+    #[default]
+    /// Start a test (default)
+    Test,
+    /// List available languages
+    List,
     /// Preview colors
-    #[arg(long)]
-    help_colors: bool,
+    HelpColors,
     /// Print help about the config file
-    #[arg(long)]
-    help_config: bool,
+    HelpConfig,
 }
 
 impl Args {
@@ -175,14 +183,16 @@ impl Args {
     fn get() -> std::io::Result<Self> {
         let a = Self::parse();
 
-        if a.list {
-            let mut h = io::stdout().lock();
-            let _ = writeln!(h, "Available languages:");
-            for l in Lang::list()? {
-                let _ = writeln!(h, "  {}", l.file_name().unwrap().to_str().unwrap());
+        let mut ex = true;
+        match a.verb.as_ref().unwrap_or(&Verb::default()) {
+            Verb::List => {
+                let mut h = io::stdout().lock();
+                let _ = writeln!(h, "Available languages:");
+                for l in Lang::list()? {
+                    let _ = writeln!(h, "  {}", l.file_name().unwrap().to_str().unwrap());
+                }
             }
-        } else if a.help_config {
-            println!(
+            Verb::HelpConfig => println!(
                 r#"arstyper Configuration Information
 
 The config file is automatically created on first run.
@@ -197,14 +207,17 @@ The config file is located at one of the following locations:
 
 To preview supported Theme Colors:
   arstyper --help-colors"#
-            );
-        } else if a.help_colors {
-            let c = ColorPreview::new();
-            c.run()?;
-        } else {
-            return Ok(a);
+            ),
+            Verb::HelpColors => {
+                let c = ColorPreview::new();
+                c.run()?;
+            }
+            Verb::Test => ex = false,
         }
 
-        process::exit(0b0);
+        if ex {
+            process::exit(0b0);
+        }
+        Ok(a)
     }
 }

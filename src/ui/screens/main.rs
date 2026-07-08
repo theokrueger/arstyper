@@ -101,9 +101,7 @@ impl Main {
                                 .send(UiRequest::AddOverlay(Overlay::Menu))
                                 .unwrap();
                         } else {
-                            unsafe {
-                                state.overlay_stack.pop().unwrap_unchecked();
-                            }
+                            state.overlay_stack.pop().unwrap();
                         };
                         pass_from_global = false;
                     }
@@ -129,13 +127,7 @@ impl Main {
                         }
                     };
                 } else {
-                    unsafe {
-                        state
-                            .overlay_stack
-                            .last_mut()
-                            .unwrap_unchecked()
-                            .handle_events(key);
-                    }
+                    state.overlay_stack.last_mut().unwrap().handle_events(key);
                 }
             }
         }
@@ -317,9 +309,7 @@ impl MainState<'_> {
         let s: Option<Box<dyn ArstyperOverlay>> = Some(Box::new(match o {
             Overlay::Menu => MenuOverlay::new(self.uireq_tx.clone())?,
         }));
-        unsafe {
-            self.overlay_stack.push(s.unwrap_unchecked());
-        }
+        self.overlay_stack.push(s.unwrap());
         Ok(())
     }
 }

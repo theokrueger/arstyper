@@ -26,18 +26,9 @@ use ratatui::{
 };
 use std::{io::stdout, sync::Mutex};
 
-macro_rules! err_disp {
-    ($name:literal) => {
-        |e| {
-            println!("Fatal Error in {}: {}", $name, e);
-            std::process::exit(1);
-        }
-    };
-}
-
 fn main() -> std::io::Result<()> {
     // global 'consts' init
-    let cfg = Config::get().unwrap_or_else(err_disp!("Config"));
+    let cfg = Config::get()?;
     let root_sty = Style::new().fg(cfg.theme.fg).bg(cfg.theme.bg);
     let accent_sty = root_sty.fg(cfg.theme.accent);
     let modeline_sty = root_sty.bg(cfg.theme.accent);
@@ -56,13 +47,14 @@ fn main() -> std::io::Result<()> {
     let scoremgr = Mutex::new(ScoreManager::new(&cfg)?);
 
     unsafe {
+        // unchecked cause globs wont impl debug lol
         globs::GLOBS
             .set(Globs { scoremgr, cfg, sty })
             .unwrap_unchecked();
     }
 
     // init ui
-    let mut ui_state = MainState::new().unwrap_or_else(err_disp!("UI Setup"));
+    let mut ui_state = MainState::new()?;
     let ui = Main::new();
 
     let mut terminal = ratatui::init();
@@ -77,7 +69,7 @@ fn main() -> std::io::Result<()> {
     while ui_state.state != AppState::Stopped {
         terminal.draw(|frame| frame.render_stateful_widget(&ui, frame.area(), &mut ui_state))?;
 
-        ui.tick(&mut ui_state).unwrap_or_else(err_disp!("UI Tick"));
+        ui.tick(&mut ui_state)?;
     }
 
     // exit raw mode

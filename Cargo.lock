@@ -90,7 +90,6 @@ dependencies = [
  "clap",
  "crossterm 0.29.0",
  "dirs",
- "once_cell",
  "rand 0.10.0",
  "ratatui",
  "serde",

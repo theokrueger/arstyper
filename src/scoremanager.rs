@@ -21,7 +21,7 @@ impl Keypress {
     /// Create keypress from char with current time as instant
     pub fn from_chr(key: char, correct: bool) -> Self {
         Self {
-            key: key,
+            key,
             time: Instant::now(),
             ignore: false,
             correct,
@@ -98,7 +98,7 @@ impl From<Vec<ScoreWord>> for Score {
 
         // head/tail operations
         let mut duration = Duration::from_secs(0);
-        if let Some(first) = unsafe { sws.first().unwrap_unchecked() }.presses.first()
+        if let Some(first) = sws.first().unwrap().presses.first()
         // ignore doesnt matter, test starts on first keystroke no matter what
         {
             'outer: for sw in sws.iter().rev() {

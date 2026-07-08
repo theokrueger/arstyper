@@ -1,8 +1,10 @@
 //! Loading and parsing of language files
 use std::{
+    cmp::min,
+    collections::VecDeque,
     fs::{self, File},
     io::{self, BufRead, Error, ErrorKind},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 /// Representation of a language file.
@@ -27,23 +29,17 @@ impl Lang {
     /// ...
     /// wordN
     /// ```
-    pub fn get_by_path(p: &PathBuf, name: &str) -> Result<Self, Error> {
+    pub fn get_by_path(p: &Path, name: &str) -> Result<Self, Error> {
         let f = File::open(&p).or(Err(Error::new(
             ErrorKind::NotFound,
             format!("No such language '{name}'"),
         )))?;
 
         let buf = io::BufReader::new(f).lines().map_while(Result::ok);
-        let mut s = Self {
+        Ok(Self {
             name: name.to_string(),
-            words: Vec::with_capacity(250),
-        };
-
-        for l in buf {
-            s.words.push(l);
-        }
-
-        return Ok(s);
+            words: buf.collect(),
+        })
     }
 
     /// Return list of all language paths.
@@ -56,13 +52,27 @@ impl Lang {
 
     /// Path to language dir.
     fn path() -> PathBuf {
-        dirs::data_local_dir().unwrap().join("arstyper/tests")
+        dirs::data_local_dir()
+            .expect("No data directory on system")
+            .join("arstyper/tests")
     }
 
     /// Get n word iterator of this language for tests
-    pub fn gen_words(&self, n: usize) -> impl Iterator<Item = String> {
-        std::iter::from_fn(|| -> Option<String> {
-            Some(self.words[rand::random_range(0..self.words.len())].clone())
+    /// Has a "repeat window" of 4 such that no word shows up more than once every 5 words
+    pub fn gen_words(&self, n: usize) -> impl Iterator<Item = String> + '_ {
+        let n_win = min(4, self.words.len().saturating_sub(1));
+        let mut window: VecDeque<String> = VecDeque::with_capacity(n_win);
+        std::iter::from_fn(move || -> Option<String> {
+            loop {
+                let s = self.words[rand::random_range(0..self.words.len())].clone();
+                if !window.contains(&s) {
+                    window.push_back(s.clone());
+                    if window.len() > n_win {
+                        window.pop_front();
+                    }
+                    return Some(s);
+                }
+            }
         })
         .take(n)
     }

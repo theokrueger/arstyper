@@ -3,9 +3,9 @@
 
 use crate::config::Config;
 use crate::scoremanager::ScoreManager;
-use once_cell::sync::OnceCell;
 use ratatui::style::Style;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 
 pub struct Globs {
     // mutable
@@ -16,7 +16,7 @@ pub struct Globs {
     pub sty: Styles,
 }
 
-pub static GLOBS: OnceCell<Globs> = OnceCell::new();
+pub static GLOBS: OnceLock<Globs> = OnceLock::new();
 
 /// Apply function to a mutex inside glob state
 #[macro_export]
