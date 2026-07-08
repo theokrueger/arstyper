@@ -9,25 +9,37 @@ use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyCode, KeyEvent},
     layout::{
-        Constraint::{Length, Min},
+        Constraint::{Length, Min, Percentage},
         Layout, Rect,
     },
     style::Stylize,
     text::{Line, Span},
     widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
 };
-use std::{io, sync::mpsc::SyncSender};
+use std::{
+    cmp::{max, min},
+    io,
+    sync::mpsc::SyncSender,
+};
 
 #[derive(Default)]
 /// Results state
 pub struct ResultsState {
     speed: f32,
     last_speed: f32,
+
     raw_speed: f32,
     last_raw_speed: f32,
+
+    completion: f32,
+    last_completion: f32,
+
     acc: f32,
     last_acc: f32,
+
     show_diff: bool,
+
+    h_scroll: usize,
 }
 
 impl ArstyperWidgetState for ResultsState {
@@ -44,33 +56,64 @@ impl ResultsState {
         self.last_speed = self.speed;
         self.last_raw_speed = self.raw_speed;
         self.last_acc = self.acc;
+        self.last_completion = self.completion;
 
         globs_apply!(scoremgr, |x: &ScoreManager| {
             self.speed = x.score.speed(false);
             self.raw_speed = x.score.speed(true);
             self.acc = x.score.accuracy();
+            self.completion = x.score.completion();
         });
+
+        self.show_diff = self.last_acc >= 70.0;
     }
 
     /// Speed as WPM/CPM
-    fn speed_span(&self, raw: bool) -> Span<'_> {
-        let unit = if globs!(cfg.locale.cpm_over_wpm) {
-            "CPM"
-        } else {
-            "WPM"
-        };
-        Span::styled(
-            format!(
-                "{:.02} {unit}",
-                if raw { self.raw_speed } else { self.speed }
-            ),
-            sty!(root),
-        )
+    fn speed_span(&self, raw: bool, show_unit: bool) -> Span<'_> {
+        Span::raw(format!(
+            "{:.02}{}",
+            if raw { self.raw_speed } else { self.speed },
+            if show_unit {
+                format!(" {}", Self::unit())
+            } else {
+                "".to_string()
+            }
+        ))
     }
 
-    /// Accuracy
-    fn acc_span(&self) -> Span<'_> {
-        Span::styled(format!("{:2.02}%", self.acc), sty!(root))
+    const WPM: &str = "WPM";
+    const CPM: &str = "CPM";
+    /// str unit wpm/cpm
+    fn unit() -> &'static str {
+        if globs!(cfg.locale.cpm_over_wpm) {
+            Self::CPM
+        } else {
+            Self::WPM
+        }
+    }
+
+    /// Accuracy as %
+    fn accuracy_span(&self) -> Span<'_> {
+        Span::raw(format!("{:2.02}%", self.acc))
+    }
+
+    /// Test completion as %
+    fn completion_span(&self) -> Span<'_> {
+        Span::raw(format!("{:2.02}%", self.completion))
+    }
+
+    fn next_h(&mut self) {
+        self.h_scroll = min(2, self.h_scroll + 1);
+        if !self.show_diff && self.h_scroll == 1 {
+            self.h_scroll = 2
+        }
+    }
+
+    fn prev_h(&mut self) {
+        self.h_scroll = max(0, self.h_scroll.saturating_sub(1));
+        if !self.show_diff && self.h_scroll == 1 {
+            self.h_scroll = 0
+        }
     }
 }
 
@@ -84,8 +127,10 @@ impl ArstyperWidget for Results {
         Ok(Self { tx: tx })
     }
 
-    fn handle_events(&mut self, key: KeyEvent, _state: &mut Self::State) {
+    fn handle_events(&mut self, key: KeyEvent, state: &mut Self::State) {
         match key.code {
+            KeyCode::Left => state.prev_h(),
+            KeyCode::Right => state.next_h(),
             KeyCode::Enter => {
                 self.tx.send(UiRequest::NewTest).unwrap();
                 self.tx
@@ -100,29 +145,101 @@ impl ArstyperWidget for Results {
 impl StatefulWidgetRef for Results {
     type State = ResultsState;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let [text_a, footer_a] = Layout::vertical([Min(0), Length(1)]).areas(area);
+        let small = (area.width.saturating_sub(2)) / 3 < 20;
 
-        // body text
+        // content
+        let [text_a, footer_a] = Layout::vertical([Min(0), Length(1 + small as u16)]).areas(area);
         let b = Block::new()
             .borders(Borders::TOP)
             .style(sty!(accent))
             .title("Results & Analysis".bold())
             .padding(Padding::horizontal(1));
-        let p = Paragraph::new(Line::from(vec![
-            state.speed_span(false),
-            state.speed_span(true),
-            state.acc_span(),
-        ]))
-        .style(sty!(root))
-        .wrap(Wrap { trim: false })
-        .block(b);
+        let b_a = b.inner(text_a);
+        b.render(text_a, buf);
 
-        p.render(text_a, buf);
+        let [graph_a, overview_a] = Layout::vertical([Min(0), Length(6)]).areas(b_a);
+        let [stats_a, comp_a, info_a] = Layout::horizontal([
+            Percentage(33 + 17 * !state.show_diff as u16),
+            Percentage(33 - 33 * !state.show_diff as u16),
+            Percentage(33 + 17 * !state.show_diff as u16),
+        ])
+        .areas(overview_a);
+
+        let base_block = Block::new().borders(Borders::ALL).style(sty!(accent));
+        // stats
+        let stats_block = base_block.clone().title("Metrics");
+        let stats_text = vec![
+            Line::from(state.speed_span(false, true).bold()),
+            Line::from(vec![Span::raw("Raw: "), state.speed_span(true, true)])
+                .style(sty!(dark_text)),
+            Line::from(vec![
+                Span::styled("Acc: ", sty!(accent)),
+                state.accuracy_span().bold(),
+            ]),
+            Line::from(vec![Span::raw("Complete: "), state.completion_span()])
+                .style(sty!(dark_text)),
+        ];
+
+        let stats_p = Paragraph::new(stats_text)
+            .style(sty!(root))
+            .block(stats_block);
+
+        // comparison
+        let comp_block = base_block.clone().title("Comparison");
+        let comp_text = vec![
+            Line::from(vec![
+                Span::styled(format!("Δ{}: ", ResultsState::unit()), sty!(accent)),
+                Span::raw("TODO").bold(),
+            ]),
+            Line::from(vec![Span::raw("ΔRaw: "), Span::raw("TODO")]).style(sty!(dark_text)),
+            Line::from(vec![
+                Span::styled("ΔAcc: ", sty!(accent)),
+                Span::raw("TODO"),
+            ]),
+            Line::from(vec![Span::raw("Peak: "), Span::raw("TODO")]).style(sty!(dark_text)),
+        ];
+        let comp_p = Paragraph::new(comp_text)
+            .style(sty!(root))
+            .block(comp_block);
+
+        // info
+        let info_block = base_block.clone().title("Test".bold());
+        let info_text = vec![
+            Line::from(Span::styled("TODO", sty!(root)).bold()),
+            Line::from(vec![
+                Span::styled("Type: ", sty!(accent)),
+                Span::raw("TODO"),
+            ]),
+            Line::from(vec![Span::raw("Completed: "), Span::raw("TODO")]).style(sty!(dark_text)),
+            Line::from(vec![Span::raw("Time: "), Span::raw("TODO")]).style(sty!(dark_text)),
+        ];
+
+        let info_p = Paragraph::new(info_text)
+            .style(sty!(root))
+            .block(info_block);
+
+        // render one at a time IFF small mode is on
+        if small {
+            match state.h_scroll {
+                0 => stats_p,
+                1 => comp_p,
+                2 => info_p,
+                _ => unreachable!(),
+            }
+            .render(overview_a, buf);
+        } else {
+            stats_p.render(stats_a, buf);
+            comp_p.render(comp_a, buf);
+            info_p.render(info_a, buf);
+        }
 
         // footer
-        Line::from("Use ⭡/⭣ to scroll or 'q' to go back.")
-            .style(sty!(accent))
-            .centered()
-            .render(footer_a, buf);
+        Paragraph::new(vec![
+            Line::from("Press 'Enter' to restart or 'q' to go back."),
+            Line::from("Use ⭠/⭢ to swap between metrics."),
+        ])
+        .style(sty!(accent))
+        .centered()
+        .render(footer_a, buf);
     }
 }

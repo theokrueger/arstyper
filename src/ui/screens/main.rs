@@ -138,8 +138,8 @@ impl Main {
 impl StatefulWidgetRef for Main {
     type State = MainState<'static>;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if area.width < 20 || area.height < 10 {
-            Paragraph::new("Terminal size too small for arstyper! Minimum w=20 h=10 chars.")
+        if area.width < 30 || area.height < 15 {
+            Paragraph::new("Terminal size too small for arstyper! Minimum w=30 h=15 chars.")
                 .wrap(Wrap { trim: true })
                 .render(area, buf);
             return;

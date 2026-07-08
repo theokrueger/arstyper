@@ -93,6 +93,7 @@ pub struct ThemeCfg {
     pub typed_text: Color,
     pub incorrect_text: Color,
     pub accent: Color,
+    pub dark_text: Color,
 }
 
 impl Default for ThemeCfg {
@@ -104,6 +105,7 @@ impl Default for ThemeCfg {
             typed_text: Color::DarkGray,
             incorrect_text: Color::Red,
             accent: Color::Magenta,
+            dark_text: Color::DarkGray,
         }
     }
 }

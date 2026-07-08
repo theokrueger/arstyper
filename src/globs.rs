@@ -65,6 +65,7 @@ pub struct Styles {
     pub typed: Style,
     pub incorrect: Style,
     pub cursor: Style,
+    pub dark_text: Style,
 }
 
 // handy due to frequent use

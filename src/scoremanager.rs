@@ -75,6 +75,11 @@ impl Score {
     pub fn accuracy(&self) -> f32 {
         100.0 * self.correct_strokes as f32 / (self.correct_strokes + self.incorrect_strokes) as f32
     }
+
+    /// Completion % of test
+    pub fn completion(&self) -> f32 {
+        100.0 * self.correct_strokes as f32 / self.chars as f32
+    }
 }
 
 impl From<Vec<ScoreWord>> for Score {

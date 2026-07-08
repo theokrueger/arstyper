@@ -43,6 +43,7 @@ fn main() -> std::io::Result<()> {
         typed: root_sty.fg(cfg.theme.typed_text),
         incorrect: root_sty.fg(cfg.theme.incorrect_text),
         cursor: root_sty.bg(cfg.theme.accent),
+        dark_text: root_sty.fg(cfg.theme.dark_text),
     };
     let scoremgr = Mutex::new(ScoreManager::new(&cfg)?);
 
