@@ -1,8 +1,7 @@
 //! Typing test struct
 use crate::{
-    globs_apply,
-    scoremanager::{Keypress, Score, ScoreManager, ScoreWord},
-    sty,
+    globs,
+    scoremanager::{Keypress, Score, ScoreWord},
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
 };
@@ -50,7 +49,7 @@ impl TestWord<'_> {
                     typed.push(p.key);
                 } else {
                     // push incorrects
-                    self.spans.push(Span::styled(typed, sty!(incorrect)));
+                    self.spans.push(Span::styled(typed, globs::sty().incorrect));
                     // flip state
                     state = !state;
                     typed = String::new();
@@ -64,7 +63,7 @@ impl TestWord<'_> {
                     typed.push(p.key);
                 } else {
                     // push corrects
-                    self.spans.push(Span::styled(typed, sty!(typed)));
+                    self.spans.push(Span::styled(typed, globs::sty().typed));
                     // flip state
                     state = !state;
                     typed = String::new();
@@ -76,7 +75,11 @@ impl TestWord<'_> {
 
         self.spans.push(Span::styled(
             typed,
-            if state { sty!(typed) } else { sty!(incorrect) },
+            if state {
+                globs::sty().typed
+            } else {
+                globs::sty().incorrect
+            },
         ));
 
         // fill remaining word
@@ -86,22 +89,22 @@ impl TestWord<'_> {
             self.spans.push(Span::styled(
                 s,
                 if show_cursor {
-                    sty!(cursor)
+                    globs::sty().cursor
                 } else {
-                    sty!(untyped)
+                    globs::sty().untyped
                 },
             ));
 
             typed = c_i.collect();
             typed.push(' ');
-            self.spans.push(Span::styled(typed, sty!(untyped)));
+            self.spans.push(Span::styled(typed, globs::sty().untyped));
         } else {
             self.spans.push(Span::styled(
                 " ",
                 if show_cursor {
-                    sty!(cursor)
+                    globs::sty().cursor
                 } else {
-                    sty!(untyped)
+                    globs::sty().untyped
                 },
             ));
         }
@@ -266,11 +269,11 @@ impl StatefulWidgetRef for Test {
                 .flatten()
                 .collect::<Vec<Span>>(),
         ))
-        .style(sty!(root))
+        .style(globs::sty().root)
         .block(
             Block::new()
                 .borders(Borders::TOP)
-                .style(sty!(accent))
+                .style(globs::sty().accent)
                 .title(state.title.as_str().bold())
                 .padding(Padding::horizontal(1)),
         )
@@ -284,11 +287,14 @@ impl Test {
         let score = state.finish();
 
         if !score.valid() {
-            self.tx.send(UiRequest::DisplayStatus("Accuracy/Completion too low! Not saving this score.".to_string(), chrono::TimeDelta::new(4,0).unwrap())).unwrap();
+            self.tx
+                .send(UiRequest::DisplayStatus(
+                    "Accuracy/Completion too low! Not saving this score.".to_string(),
+                    chrono::TimeDelta::new(4, 0).unwrap(),
+                ))
+                .unwrap();
         }
-        globs_apply!(scoremgr, |x: &mut ScoreManager| {
-            x.save_score(score).unwrap();
-        });
+        globs::scoremgr().save_score(score).unwrap();
 
         self.tx.send(UiRequest::UpdateResults).unwrap();
         self.tx

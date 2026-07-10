@@ -1,6 +1,6 @@
 //! "About this program" screen
 use crate::{
-    sty,
+    globs,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::UiRequest,
 };
@@ -79,11 +79,11 @@ impl StatefulWidgetRef for About {
         // body text
         let b = Block::new()
             .borders(Borders::TOP)
-            .style(sty!(accent))
+            .style(globs::sty().accent)
             .title("About arstyper".bold())
             .padding(Padding::horizontal(1));
         let mut p = Paragraph::new(text)
-            .style(sty!(root))
+            .style(globs::sty().root)
             .wrap(Wrap { trim: false });
 
         // scrollbar
@@ -93,14 +93,14 @@ impl StatefulWidgetRef for About {
 
         let mut sbs = ScrollbarState::new(state.max).position(state.scroll);
         Scrollbar::new(ScrollbarOrientation::VerticalRight)
-            .style(sty!(root))
+            .style(globs::sty().root)
             .render(scrollbar_a, buf, &mut sbs);
 
         p.render(text_a, buf);
 
         // footer
         Line::from("Use ⭡/⭣ to scroll or 'q' to go back.")
-            .style(sty!(accent))
+            .style(globs::sty().accent)
             .centered()
             .render(footer_a, buf);
     }

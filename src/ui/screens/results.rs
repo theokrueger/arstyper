@@ -1,9 +1,8 @@
 //! Results screen
 use crate::{
-    globs, globs_apply, sty,
+    globs,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
-    ScoreManager,
 };
 
 use ratatui::{
@@ -15,7 +14,7 @@ use ratatui::{
     },
     style::Stylize,
     text::{Line, Span},
-    widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget, Wrap},
+    widgets::{Block, Borders, Padding, Paragraph, StatefulWidgetRef, Widget},
 };
 use std::{
     cmp::{max, min},
@@ -63,13 +62,12 @@ impl ResultsState {
         self.last_completion = self.completion;
         self.last_valid = self.valid;
 
-        globs_apply!(scoremgr, |x: &ScoreManager| {
-            self.speed = x.score.speed(false);
-            self.raw_speed = x.score.speed(true);
-            self.acc = x.score.accuracy();
-            self.completion = x.score.completion();
-            self.valid = x.score.valid();
-        });
+        let scoremgr = globs::scoremgr();
+        self.speed = scoremgr.score.speed(false);
+        self.raw_speed = scoremgr.score.speed(true);
+        self.acc = scoremgr.score.accuracy();
+        self.completion = scoremgr.score.completion();
+        self.valid = scoremgr.score.valid();
 
         self.show_diff = self.valid && self.last_valid;
     }
@@ -102,7 +100,7 @@ impl ResultsState {
     const CPM: &str = "CPM";
     /// str unit wpm/cpm
     fn unit() -> &'static str {
-        if globs!(cfg.locale.cpm_over_wpm) {
+        if globs::cfg().locale.cpm_over_wpm {
             Self::CPM
         } else {
             Self::WPM
@@ -168,13 +166,13 @@ impl StatefulWidgetRef for Results {
         let [text_a, footer_a] = Layout::vertical([Min(0), Length(1 + small as u16)]).areas(area);
         let b = Block::new()
             .borders(Borders::TOP)
-            .style(sty!(accent))
+            .style(globs::sty().accent)
             .title("Results & Analysis".bold())
             .padding(Padding::horizontal(1));
         let b_a = b.inner(text_a);
         b.render(text_a, buf);
 
-        let [graph_a, overview_a] = Layout::vertical([Min(0), Length(6)]).areas(b_a);
+        let [_graph_a, overview_a] = Layout::vertical([Min(0), Length(6)]).areas(b_a);
         let [stats_a, comp_a, info_a] = Layout::horizontal([
             Percentage(33 + 17 * !state.show_diff as u16),
             Percentage(33 - 33 * !state.show_diff as u16),
@@ -182,22 +180,25 @@ impl StatefulWidgetRef for Results {
         ])
         .areas(overview_a);
 
-        let base_block = Block::new().borders(Borders::ALL).style(sty!(accent));
+        let base_block = Block::new()
+            .borders(Borders::ALL)
+            .style(globs::sty().accent);
         // stats
         let stats_block = base_block.clone().title("Metrics");
         let stats_text = vec![
             Line::from(state.speed_span(false, true).bold()),
             Line::from(vec![Span::raw("Raw: "), state.speed_span(true, true)])
-                .style(sty!(dark_text)),
+                .style(globs::sty().dark_text),
             Line::from(vec![
-                Span::styled("Acc%: ", sty!(accent)),
+                Span::styled("Acc%: ", globs::sty().accent),
                 state.accuracy_span().bold(),
             ]),
-            Line::from(vec![Span::raw("Prog: "), state.completion_span()]).style(sty!(dark_text)),
+            Line::from(vec![Span::raw("Prog: "), state.completion_span()])
+                .style(globs::sty().dark_text),
         ];
 
         let stats_p = Paragraph::new(stats_text)
-            .style(sty!(root))
+            .style(globs::sty().root)
             .block(stats_block);
 
         // comparison
@@ -207,11 +208,11 @@ impl StatefulWidgetRef for Results {
         macro_rules! sign_span {
             ($stat:ident) => {
                 if $stat > 0.01 {
-                    Span::styled(format!("+{:.02}", $stat), sty!(accent))
+                    Span::styled(format!("+{:.02}", $stat), globs::sty().accent)
                 } else if $stat < -0.01 {
-                    Span::styled(format!("{:.02}", $stat), sty!(incorrect))
+                    Span::styled(format!("{:.02}", $stat), globs::sty().incorrect)
                 } else {
-                    Span::styled(format!("{:.02}", $stat), sty!(dark_text))
+                    Span::styled(format!("{:.02}", $stat), globs::sty().dark_text)
                 }
             };
         }
@@ -219,40 +220,41 @@ impl StatefulWidgetRef for Results {
         let comp_block = base_block.clone().title("Comparison");
         let comp_text = vec![
             Line::from(vec![
-                Span::styled(format!("Δ{}: ", ResultsState::unit()), sty!(accent)),
+                Span::styled(format!("Δ{}: ", ResultsState::unit()), globs::sty().accent),
                 sign_span!(d_speed),
             ]),
             Line::from(vec![
-                Span::styled("ΔRaw: ", sty!(dark_text)),
+                Span::styled("ΔRaw: ", globs::sty().dark_text),
                 sign_span!(d_raw_speed),
             ]),
             Line::from(vec![
-                Span::styled("ΔAcc: ", sty!(accent)),
+                Span::styled("ΔAcc: ", globs::sty().accent),
                 sign_span!(d_acc),
             ]),
             Line::from(vec![
-                Span::styled("Peak: ", sty!(dark_text)),
+                Span::styled("Peak: ", globs::sty().dark_text),
                 sign_span!(d_peak_speed),
             ]),
         ];
         let comp_p = Paragraph::new(comp_text)
-            .style(sty!(root))
+            .style(globs::sty().root)
             .block(comp_block);
 
         // info
         let info_block = base_block.clone().title("Test".bold());
         let info_text = vec![
-            Line::from(Span::styled("TODO", sty!(root)).bold()),
+            Line::from(Span::styled("TODO", globs::sty().root).bold()),
             Line::from(vec![
-                Span::styled("Type: ", sty!(accent)),
+                Span::styled("Type: ", globs::sty().accent),
                 Span::raw("TODO"),
             ]),
-            Line::from(vec![Span::raw("Completed: "), Span::raw("TODO")]).style(sty!(dark_text)),
-            Line::from(vec![Span::raw("Time: "), Span::raw("TODO")]).style(sty!(dark_text)),
+            Line::from(vec![Span::raw("Completed: "), Span::raw("TODO")])
+                .style(globs::sty().dark_text),
+            Line::from(vec![Span::raw("Time: "), Span::raw("TODO")]).style(globs::sty().dark_text),
         ];
 
         let info_p = Paragraph::new(info_text)
-            .style(sty!(root))
+            .style(globs::sty().root)
             .block(info_block);
 
         // render one at a time IFF small mode is on
@@ -275,7 +277,7 @@ impl StatefulWidgetRef for Results {
             Line::from("Press 'Enter' to restart or 'q' to go back."),
             Line::from("Use ⭠/⭢ to swap between metrics."),
         ])
-        .style(sty!(accent))
+        .style(globs::sty().accent)
         .centered()
         .render(footer_a, buf);
     }

@@ -3,8 +3,8 @@ pub mod color_preview;
 pub mod overlays;
 pub mod screens;
 
-use strum::{Display, EnumIter, FromRepr};
 use chrono::TimeDelta;
+use strum::{Display, EnumIter, FromRepr};
 
 #[derive(Default, PartialEq)]
 pub enum AppState {

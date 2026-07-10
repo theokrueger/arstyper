@@ -1,6 +1,6 @@
 //! Statistics screen
 use crate::{
-    sty,
+    globs,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::UiRequest,
 };
@@ -40,11 +40,11 @@ impl StatefulWidgetRef for Stats {
     type State = StatsState;
     fn render_ref(&self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
         Paragraph::new("stats go here")
-            .style(sty!(root))
+            .style(globs::sty().root)
             .block(
                 Block::new()
                     .borders(Borders::TOP)
-                    .style(sty!(accent))
+                    .style(globs::sty().accent)
                     .title("Statistics".bold())
                     .padding(Padding::horizontal(1)),
             )

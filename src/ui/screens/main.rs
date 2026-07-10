@@ -1,7 +1,6 @@
 use crate::{
-    config, globs_ref,
+    globs,
     lang::Lang,
-    sty,
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{
         AppState, Overlay, Screen, UiRequest,
@@ -38,7 +37,7 @@ impl Main {
     pub fn new() -> Self {
         Self {
             tick_duration: Duration::from_micros(
-                (1.0 / config!(ui.framerate) * 1000.0 * 1000.0) as u64,
+                (1.0 / globs::cfg().ui.framerate * 1000.0 * 1000.0) as u64,
             ),
         }
     }
@@ -67,7 +66,7 @@ impl Main {
                     state.overlay_stack.pop();
                 }
                 UiRequest::NewTest => state.new_test(),
-                UiRequest::DisplayStatus(s,t) => state.set_status_for(s,t)
+                UiRequest::DisplayStatus(s, t) => state.set_status_for(s, t),
             }
         }
 
@@ -90,13 +89,13 @@ impl Main {
                         }
                     }
                     KeyCode::F(1) => {
-                        if state.overlay_stack.len() <= 0 {
+                        if state.overlay_stack.is_empty() {
                             state.change_screen(Screen::AboutScreen);
                             pass_from_global = false;
                         }
                     }
                     KeyCode::Esc => {
-                        if state.overlay_stack.len() <= 0 {
+                        if state.overlay_stack.is_empty() {
                             state
                                 .uireq_tx
                                 .send(UiRequest::AddOverlay(Overlay::Menu))
@@ -114,7 +113,7 @@ impl Main {
                 }
 
                 // overlay takes precedent over screen
-                if state.overlay_stack.len() <= 0 {
+                if state.overlay_stack.is_empty() {
                     match state.screen {
                         Screen::AboutScreen => {
                             state.about.handle_events(key, &mut state.about_state)
@@ -211,7 +210,7 @@ pub struct MainState<'a> {
 
 impl MainState<'_> {
     pub fn new() -> Result<Self, std::io::Error> {
-        let lang = Lang::get_by_name(globs_ref!(cfg.lang))?;
+        let lang = Lang::get_by_name(&globs::cfg().lang)?;
 
         let (tx, rx) = sync_channel::<UiRequest>(5);
         let mut ret = Self {
@@ -232,7 +231,7 @@ impl MainState<'_> {
             last_screen: Screen::default(),
             overlay_stack: Vec::new(),
 
-            status: if config!(ui.show_welcome_message) {
+            status: if globs::cfg().ui.show_welcome_message {
                 "Welcome to arstyper! Press <F1> for help, or <Ctrl-C> to exit.".to_string()
             } else {
                 "".to_string()
@@ -252,9 +251,9 @@ impl MainState<'_> {
 
     fn new_test(&mut self) {
         self.test_state
-            .test_from(self.lang.gen_words(config!(word_count) as usize));
+            .test_from(self.lang.gen_words(globs::cfg().word_count as usize));
         self.test_state
-            .set_title(format!("{} {}", self.lang.name, config!(word_count)).to_string()); // TODO use enum and strum and other things when more test types introduced
+            .set_title(format!("{} {}", self.lang.name, globs::cfg().word_count).to_string()); // TODO use enum and strum and other things when more test types introduced
     }
 
     pub fn render_modeline(&self, area: Rect, buf: &mut Buffer) {
@@ -263,16 +262,16 @@ impl MainState<'_> {
         let mode = format!("{}", self.screen);
         Line::from(vec![
             Span::raw("arstyper "),
-            Span::raw(mode).style(sty!(modeline_inv)),
+            Span::raw(mode).style(globs::sty().modeline_inv),
         ])
-        .style(sty!(modeline))
+        .style(globs::sty().modeline)
         .render(c1, buf);
 
-        let time = if config!(ui.show_clock) {
+        let time = if globs::cfg().ui.show_clock {
             let t = Local::now();
             format!(
                 "{:02}:{:02}",
-                if config!(locale.show_24_hour_time) {
+                if globs::cfg().locale.show_24_hour_time {
                     t.hour()
                 } else {
                     t.hour12().1
@@ -282,11 +281,15 @@ impl MainState<'_> {
         } else {
             " ".to_string()
         };
-        Line::from(time).style(sty!(modeline)).render(time_a, buf);
+        Line::from(time)
+            .style(globs::sty().modeline)
+            .render(time_a, buf);
     }
 
     pub fn render_status(&self, area: Rect, buf: &mut Buffer) {
-        Line::raw(&self.status).style(sty!(root)).render(area, buf);
+        Line::raw(&self.status)
+            .style(globs::sty().root)
+            .render(area, buf);
     }
 
     pub fn set_status_for(&mut self, s: String, t: TimeDelta) {

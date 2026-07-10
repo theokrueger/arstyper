@@ -8,7 +8,7 @@ mod ui;
 mod util;
 
 use config::Config;
-use globs::{Globs, Styles};
+use globs::{GLOBS, Globs, Styles};
 use scoremanager::ScoreManager;
 use ui::{
     AppState,
@@ -47,12 +47,9 @@ fn main() -> std::io::Result<()> {
     };
     let scoremgr = Mutex::new(ScoreManager::new(&cfg)?);
 
-    unsafe {
-        // unchecked cause globs wont impl debug lol
-        globs::GLOBS
-            .set(Globs { scoremgr, cfg, sty })
-            .unwrap_unchecked();
-    }
+    GLOBS
+        .set(Globs { scoremgr, cfg, sty })
+        .unwrap_or_else(|_| panic!("err setting globs"));
 
     // init ui
     let mut ui_state = MainState::new()?;

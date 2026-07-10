@@ -1,59 +1,13 @@
-//! due to unsafe blocks, it is assumed that every OnceCell herein is initialised before UI init.
-//! therefore, it will always be memory safe even with unchecked unwraps
+//! Global state module.
+//!
+//! Exposes thread-safe access to read-only configuration and styles,
+//! as well as the mutable ScoreManager.
 
 use crate::config::Config;
 use crate::scoremanager::ScoreManager;
 use ratatui::style::Style;
-use std::sync::Mutex;
-use std::sync::OnceLock;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
-pub struct Globs {
-    // mutable
-    pub scoremgr: Mutex<ScoreManager>,
-
-    // immutable
-    pub cfg: Config,
-    pub sty: Styles,
-}
-
-pub static GLOBS: OnceLock<Globs> = OnceLock::new();
-
-/// Apply function to a mutex inside glob state
-#[macro_export]
-macro_rules! globs_apply {
-    ($name:ident, $func:expr) => {
-        // TODO make this not stupid in our syncrhonous context
-        use std::ops::DerefMut;
-        unsafe {
-            let mut res = crate::globs::GLOBS
-                .get()
-                .unwrap_unchecked()
-                .$name
-                .lock()
-                .unwrap_unchecked();
-            let field = res.deref_mut();
-            $func(field);
-        }
-    };
-}
-
-/// Get an immutable glob by ident[.field.field]
-#[macro_export]
-macro_rules! globs {
-    ($name:ident$(.$field:ident)*) => {
-        unsafe { crate::globs::GLOBS.get().unwrap_unchecked().$name$(.$field)* }
-    };
-}
-
-/// Get immutable glob by reference
-#[macro_export]
-macro_rules! globs_ref {
-    ($name:ident$(.$field:ident)*) => {
-        unsafe { &crate::globs::GLOBS.get().unwrap_unchecked().$name$(.$field)* }
-    };
-}
-
-/// Common style shortcuts
 pub struct Styles {
     pub root: Style,
     pub root_inv: Style,
@@ -68,17 +22,25 @@ pub struct Styles {
     pub dark_text: Style,
 }
 
-// handy due to frequent use
-#[macro_export]
-macro_rules! config {
-    ($name:ident$(.$field:ident)*) => {
-        crate::globs!(cfg.$name$(.$field)*)
-    };
+pub struct Globs {
+    pub scoremgr: Mutex<ScoreManager>,
+    pub cfg: Config,
+    pub sty: Styles,
 }
 
-#[macro_export]
-macro_rules! sty {
-    ($name:ident) => {
-        crate::globs!(sty.$name)
-    };
+pub static GLOBS: OnceLock<Globs> = OnceLock::new();
+
+/// Retrieve a reference to the global configuration.
+pub fn cfg() -> &'static Config {
+    &GLOBS.get().expect("GLOBS not initialized").cfg
+}
+
+/// Retrieve a reference to the global styles.
+pub fn sty() -> &'static Styles {
+    &GLOBS.get().expect("GLOBS not initialized").sty
+}
+
+/// Lock and retrieve the mutable score manager.
+pub fn scoremgr() -> MutexGuard<'static, ScoreManager> {
+    GLOBS.get().unwrap().scoremgr.lock().unwrap()
 }

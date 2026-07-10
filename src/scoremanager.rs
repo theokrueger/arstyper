@@ -1,5 +1,5 @@
 //! Create and manage new scores, score database, and perform analyses.
-use crate::{config::Config, globs, globs_ref, util};
+use crate::{config::Config, globs, util};
 
 use serde::{Deserialize, Serialize};
 use std::{
@@ -65,7 +65,7 @@ impl Score {
             self.correct_strokes as f32
         }) / self.duration.as_secs_f32()
             * 60.0;
-        if !globs!(cfg.locale.cpm_over_wpm) {
+        if !globs::cfg().locale.cpm_over_wpm {
             cpm /= 6.0;
         }
         cpm
@@ -82,10 +82,9 @@ impl Score {
     }
 
     /// Check if score is valid
-    pub fn valid(&self) -> bool{
+    pub fn valid(&self) -> bool {
         self.accuracy() > 70.0 && self.completion() > 99.9
     }
-
 }
 
 impl From<Vec<ScoreWord>> for Score {
@@ -130,8 +129,8 @@ impl From<Vec<ScoreWord>> for Score {
             chars -= 1;
         }
 
-         Self {
-            lang: globs_ref!(cfg.lang).clone(),
+        Self {
+            lang: globs::cfg().lang.clone(),
             words: sws.len() as u32,
             chars: chars as u32,
             correct_strokes,

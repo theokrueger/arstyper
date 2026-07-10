@@ -1,6 +1,6 @@
 //! Menu screen
 use crate::{
-    sty,
+    globs,
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
 };
@@ -113,7 +113,7 @@ impl StatefulWidgetRef for Menu {
         let b = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Double)
-            .style(sty!(accent))
+            .style(globs::sty().accent)
             .padding(Padding::horizontal(1));
         let bi = b.inner(area);
         b.render(area, buf);
@@ -134,7 +134,7 @@ impl StatefulWidgetRef for Menu {
             .enumerate()
             .filter_map(|(i, x)| {
                 if i == state.index {
-                    Some(Line::from(Span::raw(x.0).style(sty!(accent_inv))))
+                    Some(Line::from(Span::raw(x.0).style(globs::sty().accent_inv)))
                 } else if i >= start && i < end {
                     Some(Line::from(x.0))
                 } else {
@@ -143,7 +143,7 @@ impl StatefulWidgetRef for Menu {
             })
             .collect::<Vec<Line>>();
         Paragraph::new(lines)
-            .style(sty!(root))
+            .style(globs::sty().root)
             .wrap(Wrap { trim: false })
             .render(list_a, buf);
 
@@ -151,12 +151,12 @@ impl StatefulWidgetRef for Menu {
         Line::from(vec![
             Span::raw("> "),
             if state.query.len() == 0 {
-                Span::styled("type to search", sty!(root)).italic()
+                Span::styled("type to search", globs::sty().root).italic()
             } else {
                 Span::raw(state.query.clone())
             },
         ])
-        .style(sty!(accent))
+        .style(globs::sty().accent)
         .render(search_a, buf);
     }
 }
