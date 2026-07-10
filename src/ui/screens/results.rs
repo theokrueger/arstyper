@@ -191,7 +191,7 @@ impl StatefulWidgetRef for Results {
             Line::from(vec![Span::raw("Raw: "), state.speed_span(true, true)])
                 .style(globs::sty().dark_text),
             Line::from(vec![
-                Span::styled("Acc%: ", globs::sty().accent),
+                Span::styled("Acc: ", globs::sty().accent),
                 state.accuracy_span().bold(),
             ]),
             Line::from(vec![Span::raw("Prog: "), state.completion_span()])
@@ -229,7 +229,7 @@ impl StatefulWidgetRef for Results {
                 sign_span!(d_raw_speed),
             ]),
             Line::from(vec![
-                Span::styled("ΔAcc: ", globs::sty().accent),
+                Span::styled("ΔAcc%: ", globs::sty().accent),
                 sign_span!(d_acc),
             ]),
             Line::from(vec![

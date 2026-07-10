@@ -1,9 +1,11 @@
 //! Menu screen
 use crate::{
     globs,
-    traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
-    ui::{Screen, UiRequest},
+    traits::{ArstyperWidget, ArstyperWidgetState},
+    ui::{Overlay, Screen, UiRequest},
 };
+
+use super::OverlayLayout;
 
 use ratatui::{
     buffer::Buffer,
@@ -24,9 +26,14 @@ use std::{
 // display name, action, metadata
 type Setting = (&'static str, UiRequest, &'static str);
 
-const N_SETTINGS: usize = 3;
+const N_SETTINGS: usize = 4;
 const SETTINGS: [Setting; N_SETTINGS] = [
     ("Close Menu", UiRequest::Empty, "cm,esc"),
+    (
+        "Change Language",
+        UiRequest::AddOverlay(Overlay::ChangeLanguage),
+        "chng,lng,test",
+    ),
     (
         "View Help",
         UiRequest::ChangeScreen(Screen::AboutScreen),
@@ -35,37 +42,7 @@ const SETTINGS: [Setting; N_SETTINGS] = [
     ("Exit arstyper", UiRequest::Exit, "quit,stop,exit,close"),
 ];
 
-/// Menu overlay
-pub struct MenuOverlay {
-    renderable: Menu,
-    state: MenuState,
-}
-
-impl MenuOverlay {
-    pub fn new(tx: SyncSender<UiRequest>) -> io::Result<Self> {
-        Ok(Self {
-            renderable: Menu::new(tx)?,
-            state: MenuState::new()?,
-        })
-    }
-}
-
-impl ArstyperOverlay for MenuOverlay {
-    fn render_ref_overlay(&mut self, area: Rect, buf: &mut Buffer) {
-        use Constraint::{Min, Percentage};
-        let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
-        let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
-        let [_, v_a, _] = v.areas(area);
-        let [_, a, _] = h.areas(v_a);
-        self.renderable.render_ref(a, buf, &mut self.state);
-    }
-
-    fn handle_events(&mut self, key: KeyEvent) {
-        self.renderable.handle_events(key, &mut self.state);
-    }
-}
-
-struct Menu {
+pub struct Menu {
     tx: SyncSender<UiRequest>,
 }
 
@@ -101,6 +78,17 @@ impl ArstyperWidget for Menu {
             }
             _ => {}
         }
+    }
+}
+
+impl OverlayLayout for Menu {
+    fn overlay_area(area: Rect) -> Rect {
+        use Constraint::{Min, Percentage};
+        let v = Layout::vertical([Min(1), Percentage(66), Min(2)]);
+        let h = Layout::horizontal([Percentage(15), Min(5), Percentage(15)]);
+        let [_, v_a, _] = v.areas(area);
+        let [_, a, _] = h.areas(v_a);
+        a
     }
 }
 

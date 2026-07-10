@@ -4,7 +4,7 @@ use crate::{
     traits::{ArstyperOverlay, ArstyperWidget, ArstyperWidgetState},
     ui::{
         AppState, Overlay, Screen, UiRequest,
-        overlays::menu::MenuOverlay,
+        overlays::{OverlayWrapper, menu::Menu},
         screens::{
             about::{About, AboutState},
             results::{Results, ResultsState},
@@ -311,7 +311,8 @@ impl MainState<'_> {
 
     pub fn add_overlay(&mut self, o: Overlay) -> io::Result<()> {
         let s: Option<Box<dyn ArstyperOverlay>> = Some(Box::new(match o {
-            Overlay::Menu => MenuOverlay::new(self.uireq_tx.clone())?,
+            Overlay::Menu => OverlayWrapper::<Menu>::new(self.uireq_tx.clone())?,
+            Overlay::ChangeLanguage => OverlayWrapper::<Menu>::new(self.uireq_tx.clone())?, // TODO
         }));
         self.overlay_stack.push(s.unwrap());
         Ok(())

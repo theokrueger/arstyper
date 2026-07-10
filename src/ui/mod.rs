@@ -32,6 +32,7 @@ pub enum Screen {
 /// Currenly enabled overlay
 pub enum Overlay {
     Menu,
+    ChangeLanguage,
 }
 
 #[derive(Clone)]
