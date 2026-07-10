@@ -147,6 +147,7 @@ impl ArstyperWidget for Results {
             KeyCode::Left => state.prev_h(),
             KeyCode::Right => state.next_h(),
             KeyCode::Enter => {
+                self.tx.send(UiRequest::ClearStatus).unwrap();
                 self.tx.send(UiRequest::NewTest).unwrap();
                 self.tx
                     .send(UiRequest::ChangeScreen(Screen::TestScreen))
