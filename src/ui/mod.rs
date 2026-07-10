@@ -1,4 +1,5 @@
 //! Root UI
+pub mod app;
 pub mod color_preview;
 pub mod overlays;
 pub mod screens;

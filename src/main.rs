@@ -12,7 +12,7 @@ use globs::{GLOBS, Globs, Styles};
 use scoremanager::ScoreManager;
 use ui::{
     AppState,
-    screens::main::{Main, MainState},
+    app::{Main, MainState},
 };
 
 use ratatui::{
