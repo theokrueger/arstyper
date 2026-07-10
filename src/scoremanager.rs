@@ -52,6 +52,7 @@ pub struct Score {
     pub completed: u64,
     pub chars: u32,
     pub correct_strokes: u32,
+    pub erased_correct_strokes: u32,
     pub incorrect_strokes: u32,
     pub duration: Duration,
 }
@@ -78,7 +79,7 @@ impl Score {
 
     /// Completion % of test
     pub fn completion(&self) -> f32 {
-        100.0 * self.correct_strokes as f32 / self.chars as f32
+        100.0 * (self.correct_strokes - self.erased_correct_strokes) as f32 / self.chars as f32
     }
 
     /// Check if score is valid
@@ -92,6 +93,7 @@ impl From<Vec<ScoreWord>> for Score {
     fn from(sws: Vec<ScoreWord>) -> Self {
         let mut correct_strokes = 0;
         let mut incorrect_strokes = 0;
+        let mut erased_correct_strokes = 0;
         let mut chars = 0;
 
         // count stats
@@ -100,6 +102,9 @@ impl From<Vec<ScoreWord>> for Score {
             for kp in sw.presses.iter() {
                 if kp.correct {
                     correct_strokes += 1;
+                    if kp.ignore {
+                        erased_correct_strokes += 1;
+                    }
                 } else {
                     incorrect_strokes += 1;
                 }
@@ -108,9 +113,9 @@ impl From<Vec<ScoreWord>> for Score {
 
         // head/tail operations
         let mut duration = Duration::from_secs(0);
-        if let Some(first) = sws.first().unwrap().presses.first()
+
         // ignore doesnt matter, test starts on first keystroke no matter what
-        {
+        if let Some(first) = sws.first().unwrap().presses.first() {
             'outer: for sw in sws.iter().rev() {
                 for kp in sw.presses.iter().rev() {
                     if !kp.ignore {
@@ -134,6 +139,7 @@ impl From<Vec<ScoreWord>> for Score {
             words: sws.len() as u32,
             chars: chars as u32,
             correct_strokes,
+            erased_correct_strokes,
             incorrect_strokes,
             completed: util::timestamp_s(),
             duration,
