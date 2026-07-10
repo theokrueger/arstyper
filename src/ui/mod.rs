@@ -4,6 +4,7 @@ pub mod overlays;
 pub mod screens;
 
 use strum::{Display, EnumIter, FromRepr};
+use chrono::TimeDelta;
 
 #[derive(Default, PartialEq)]
 pub enum AppState {
@@ -53,6 +54,6 @@ pub enum UiRequest {
     NewTest,
     /// Update score in Results from ScoreManager
     UpdateResults,
-    //// Set the statusbar to this message. Will overwrite any existing message
-    //DisplayStatus(String, DateTime<Local>),
+    /// Set the statusbar to this message. Will overwrite any existing message
+    DisplayStatus(String, TimeDelta),
 }

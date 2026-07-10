@@ -1,8 +1,9 @@
 //! Results screen
 use crate::{
-    ScoreManager, globs, globs_apply, sty,
+    globs, globs_apply, sty,
     traits::{ArstyperWidget, ArstyperWidgetState},
     ui::{Screen, UiRequest},
+    ScoreManager,
 };
 
 use ratatui::{
@@ -37,6 +38,9 @@ pub struct ResultsState {
     acc: f32,
     last_acc: f32,
 
+    valid: bool,
+    last_valid: bool,
+
     show_diff: bool,
 
     h_scroll: usize,
@@ -57,15 +61,28 @@ impl ResultsState {
         self.last_raw_speed = self.raw_speed;
         self.last_acc = self.acc;
         self.last_completion = self.completion;
+        self.last_valid = self.valid;
 
         globs_apply!(scoremgr, |x: &ScoreManager| {
             self.speed = x.score.speed(false);
             self.raw_speed = x.score.speed(true);
             self.acc = x.score.accuracy();
             self.completion = x.score.completion();
+            self.valid = x.score.valid();
         });
 
-        self.show_diff = self.last_acc >= 70.0;
+        self.show_diff = self.valid && self.last_valid;
+    }
+
+    /// Comparison to last test
+    /// ret: `(speed, raw_speed, acc, peak_speed)`
+    fn delta_stats(&self) -> (f32, f32, f32, f32) {
+        (
+            self.speed - self.last_speed,
+            self.raw_speed - self.last_raw_speed,
+            (self.acc - self.last_acc) / self.last_acc,
+            0.0, // TODO
+        )
     }
 
     /// Speed as WPM/CPM
@@ -173,11 +190,10 @@ impl StatefulWidgetRef for Results {
             Line::from(vec![Span::raw("Raw: "), state.speed_span(true, true)])
                 .style(sty!(dark_text)),
             Line::from(vec![
-                Span::styled("Acc: ", sty!(accent)),
+                Span::styled("Acc%: ", sty!(accent)),
                 state.accuracy_span().bold(),
             ]),
-            Line::from(vec![Span::raw("Complete: "), state.completion_span()])
-                .style(sty!(dark_text)),
+            Line::from(vec![Span::raw("Prog: "), state.completion_span()]).style(sty!(dark_text)),
         ];
 
         let stats_p = Paragraph::new(stats_text)
@@ -185,18 +201,39 @@ impl StatefulWidgetRef for Results {
             .block(stats_block);
 
         // comparison
+        let (d_speed, d_raw_speed, d_acc, d_peak_speed) = state.delta_stats();
+
+        // span of sign +/- and color for a f32 stat
+        macro_rules! sign_span {
+            ($stat:ident) => {
+                if $stat > 0.01 {
+                    Span::styled(format!("+{:.02}", $stat), sty!(accent))
+                } else if $stat < -0.01 {
+                    Span::styled(format!("{:.02}", $stat), sty!(incorrect))
+                } else {
+                    Span::styled(format!("{:.02}", $stat), sty!(dark_text))
+                }
+            };
+        }
+
         let comp_block = base_block.clone().title("Comparison");
         let comp_text = vec![
             Line::from(vec![
                 Span::styled(format!("Δ{}: ", ResultsState::unit()), sty!(accent)),
-                Span::raw("TODO").bold(),
+                sign_span!(d_speed),
             ]),
-            Line::from(vec![Span::raw("ΔRaw: "), Span::raw("TODO")]).style(sty!(dark_text)),
+            Line::from(vec![
+                Span::styled("ΔRaw: ", sty!(dark_text)),
+                sign_span!(d_raw_speed),
+            ]),
             Line::from(vec![
                 Span::styled("ΔAcc: ", sty!(accent)),
-                Span::raw("TODO"),
+                sign_span!(d_acc),
             ]),
-            Line::from(vec![Span::raw("Peak: "), Span::raw("TODO")]).style(sty!(dark_text)),
+            Line::from(vec![
+                Span::styled("Peak: ", sty!(dark_text)),
+                sign_span!(d_peak_speed),
+            ]),
         ];
         let comp_p = Paragraph::new(comp_text)
             .style(sty!(root))

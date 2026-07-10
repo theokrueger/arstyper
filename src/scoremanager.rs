@@ -80,6 +80,12 @@ impl Score {
     pub fn completion(&self) -> f32 {
         100.0 * self.correct_strokes as f32 / self.chars as f32
     }
+
+    /// Check if score is valid
+    pub fn valid(&self) -> bool{
+        self.accuracy() > 70.0 && self.completion() > 99.9
+    }
+
 }
 
 impl From<Vec<ScoreWord>> for Score {
@@ -124,7 +130,7 @@ impl From<Vec<ScoreWord>> for Score {
             chars -= 1;
         }
 
-        Self {
+         Self {
             lang: globs_ref!(cfg.lang).clone(),
             words: sws.len() as u32,
             chars: chars as u32,
@@ -158,12 +164,16 @@ impl ScoreManager {
 
     pub fn save_score(&mut self, score: Score) -> Result<(), Error> {
         self.tests_taken += 1;
-        let p = &Self::path().join(format!("{}.toml", score.completed.to_string()));
-        let mut f = File::create(&p).or(Err(Error::new(
-            ErrorKind::NotFound,
-            format!("Unable to create file '{}'", p.display()),
-        )))?;
-        f.write_all(toml::to_string(&score).unwrap().as_bytes())?;
+
+        if score.valid() {
+            let p = &Self::path().join(format!("{}.toml", score.completed.to_string()));
+            let mut f = File::create(&p).or(Err(Error::new(
+                ErrorKind::NotFound,
+                format!("Unable to create file '{}'", p.display()),
+            )))?;
+            f.write_all(toml::to_string(&score).unwrap().as_bytes())?;
+        }
+
         self.score = score;
         Ok(())
     }

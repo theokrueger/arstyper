@@ -283,6 +283,9 @@ impl Test {
     fn end_test(&mut self, state: &mut TestState) {
         let score = state.finish();
 
+        if !score.valid() {
+            self.tx.send(UiRequest::DisplayStatus("Accuracy/Completion too low! Not saving this score.".to_string(), chrono::TimeDelta::new(4,0).unwrap())).unwrap();
+        }
         globs_apply!(scoremgr, |x: &mut ScoreManager| {
             x.save_score(score).unwrap();
         });

@@ -67,6 +67,7 @@ impl Main {
                     state.overlay_stack.pop();
                 }
                 UiRequest::NewTest => state.new_test(),
+                UiRequest::DisplayStatus(s,t) => state.set_status_for(s,t)
             }
         }
 
